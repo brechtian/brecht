@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>[ %highlight(%-5level)] %red([%date{dd MMM yyyy;HH:mm:ss.SSS}]) %yellow([%logger{0}]) %cyan(%X{akkaSource}) - %boldBlue(%msg%n)</pattern>
+        </encoder>
+    </appender>
+
+    <!-- this config is for logback framework -->
+    <logger name="com.zaxxer.hikari" level="INFO" additivity="false">
+        <appender-ref ref="STDOUT"/>
+    </logger>
+
+    <root level="DEBUG">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+</configuration>
