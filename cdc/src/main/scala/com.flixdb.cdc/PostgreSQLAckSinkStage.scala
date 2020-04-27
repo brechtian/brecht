@@ -1,11 +1,7 @@
 package com.flixdb.cdc
 
-import java.sql.Connection
-
 import akka.stream._
 import akka.stream.stage._
-
-import scala.util.control.NonFatal
 
 private[cdc] final class PostgreSQLAckSinkStage(
     instance: PostgreSQLInstance,
@@ -27,17 +23,17 @@ private[cdc] final class PostgreSQLSinkStageLogic(
     val settings: PgCdcAckSinkSettings,
     val shape: SinkShape[AckLogSeqNum]
 ) extends TimerGraphStageLogic(shape)
-    with StageLogging
-    with PostgreSQL {
+    with StageLogging {
 
   private var items: List[String] = List.empty[String] // LSNs of un-acked items (cannot grow > settings.maxItems)
   // note that these have to be received in order (i.e. can't use mapAsyncUnordered before this)
 
-  val conn: Connection = getConnection(instance.hikariDataSource)
+  private val pg = PostgreSQL(instance.hikariDataSource)
 
   private def in: Inlet[AckLogSeqNum] = shape.in
 
   override def onTimer(timerKey: Any): Unit = {
+    log.debug("Timer")
     acknowledgeItems()
     scheduleOnce("postgresqlcdc-ack-sink-timer", settings.maxItemsWait)
   }
@@ -45,10 +41,10 @@ private[cdc] final class PostgreSQLSinkStageLogic(
   private def acknowledgeItems(): Unit =
     items.headOption match {
       case Some(v) =>
-        flush(instance.slotName, v)
+        pg.flush(instance.slotName, v)
         items = Nil
       case None =>
-        log.debug("no items to acknowledge consumption of")
+        log.debug("No items to acknowledge consumption of")
     }
 
   override def preStart(): Unit =
@@ -68,12 +64,6 @@ private[cdc] final class PostgreSQLSinkStageLogic(
   )
 
   override def postStop(): Unit =
-    try {
-      conn.close()
-      log.debug("closed connection")
-    } catch {
-      case NonFatal(e) =>
-        log.error("failed to close connection", e)
-    }
+    log.info("Stopped")
 
 }

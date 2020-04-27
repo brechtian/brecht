@@ -1,12 +1,14 @@
 package com.flixdb.cdc
 
-import java.sql.{Connection, PreparedStatement}
+import java.sql.{Connection, PreparedStatement, ResultSet, Statement}
 
-import akka.event.LoggingAdapter
 import com.zaxxer.hikari.HikariDataSource
+import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Try
+import scala.util.{Failure, Try}
+import scala.util.control.NonFatal
+import scala.util.chaining._
 
 private[cdc] object PostgreSQL {
 
@@ -18,32 +20,33 @@ private[cdc] object PostgreSQL {
 
 }
 
-private[cdc] trait PostgreSQL {
+private[cdc] case class PostgreSQL(ds: HikariDataSource) {
 
   import PostgreSQL._
 
-  val conn: Connection
-  def log: LoggingAdapter
+  private val log = LoggerFactory.getLogger(classOf[PostgreSQL])
 
-  def getConnection(ds: HikariDataSource): Connection = {
+  def getConnection: Connection = {
     ds.getConnection()
   }
 
   /** Checks that the slot exists */
   def checkSlotExists(slotName: String, plugin: Plugin): Boolean = {
 
-    val getReplicationSlots = conn.prepareStatement(
-      "SELECT * FROM pg_replication_slots WHERE slot_name = ?"
-    )
-    getReplicationSlots.setString(1, slotName)
-    val rs = getReplicationSlots.executeQuery()
+    var conn: Connection = null
+    var getReplicationSlots: PreparedStatement = null
+    var rs: ResultSet = null
 
-    rs.next() match {
-      case false =>
+    try {
+      conn = getConnection
+      getReplicationSlots = conn.prepareStatement("SELECT * FROM pg_replication_slots WHERE slot_name = ?")
+      getReplicationSlots.setString(1, slotName)
+      rs = getReplicationSlots.executeQuery()
+
+      if (!rs.next()) {
         log.info("logical replication slot with name {} does not exist", slotName)
-        rs.close()
         false
-      case true =>
+      } else {
         val database = rs.getString("database")
         val foundPlugin = rs.getString("plugin")
         foundPlugin match {
@@ -55,30 +58,64 @@ private[cdc] trait PostgreSQL {
               plugin.name
             )
           case _ =>
-            log.warning("improper plugin configuration for slot with name {}", slotName)
+            log.warn("improper plugin configuration for slot with name {}", slotName)
         }
-        rs.close()
         true
+      }
+    } catch {
+      case NonFatal(e) =>
+        log.error("Failed to check if replication slot exists", e)
+        throw e
+    } finally {
+      attemptCloseStatement(getReplicationSlots)
+      attemptCloseResultSet(rs)
+      attemptCloseConnection(conn)
     }
 
   }
 
   def createSlot(slotName: String, plugin: Plugin): Unit = {
-    log.info("setting up logical replication slot {}", slotName)
-    val stmt = conn.prepareStatement(s"SELECT * FROM pg_create_logical_replication_slot(?, ?)")
-    stmt.setString(1, slotName)
-    stmt.setString(2, plugin.name)
-    stmt.execute()
+    var conn: Connection = null
+    var stmt: PreparedStatement = null
+
+    try {
+      conn = getConnection
+      log.info("setting up logical replication slot {}", slotName)
+      stmt = conn.prepareStatement(s"SELECT * FROM pg_create_logical_replication_slot(?, ?)")
+      stmt.setString(1, slotName)
+      stmt.setString(2, plugin.name)
+      stmt.execute()
+    } catch {
+      case NonFatal(e) =>
+        log.error("Failed to create slot", e)
+        throw e
+    } finally {
+      attemptCloseStatement(stmt)
+      attemptCloseConnection(conn)
+    }
   }
 
   def dropSlot(slotName: String): Unit = {
-    log.info("dropping logical replication slot {}", slotName)
-    val stmt = conn.prepareStatement(s"SELECT * FROM pg_drop_logical_replication_slot(?)")
-    stmt.setString(1, slotName)
-    stmt.execute()
+    var conn: Connection = null
+    var stmt: PreparedStatement = null
+
+    try {
+      conn = getConnection
+      log.info("dropping logical replication slot {}", slotName)
+      stmt = conn.prepareStatement(s"SELECT * FROM pg_drop_logical_replication_slot(?)")
+      stmt.setString(1, slotName)
+      stmt.execute()
+    } catch {
+      case NonFatal(e) =>
+        log.error("Failed to drop slot", e)
+        throw e
+    } finally {
+      attemptCloseStatement(stmt)
+      attemptCloseConnection(conn)
+    }
   }
 
-  def buildGetSlotChangesStatement(slotName: String, maxItems: Int): PreparedStatement = {
+  private def buildGetSlotChangesStatement(conn: Connection, slotName: String, maxItems: Int): PreparedStatement = {
     val statement: PreparedStatement =
       conn.prepareStatement("SELECT * FROM pg_logical_slot_get_changes(?, NULL, ?, 'include-timestamp', 'on')")
     statement.setString(1, slotName)
@@ -86,7 +123,7 @@ private[cdc] trait PostgreSQL {
     statement
   }
 
-  def buildPeekSlotChangesStatement(slotName: String, maxItems: Int): PreparedStatement = {
+  private def buildPeekSlotChangesStatement(conn: Connection, slotName: String, maxItems: Int): PreparedStatement = {
     val statement: PreparedStatement =
       conn.prepareStatement("SELECT * FROM pg_logical_slot_peek_changes(?, NULL, ?, 'include-timestamp', 'on')")
     statement.setString(1, slotName)
@@ -95,30 +132,78 @@ private[cdc] trait PostgreSQL {
   }
 
   def flush(slotName: String, upToLogSeqNum: String): Unit = {
-    val statement: PreparedStatement =
-      conn.prepareStatement("SELECT 1 FROM pg_logical_slot_get_changes(?,?, NULL)")
-    statement.setString(1, slotName)
-    statement.setString(2, upToLogSeqNum)
-    statement.execute()
-    statement.close()
+
+    var conn: Connection = null
+    var statement: PreparedStatement = null
+
+    try {
+      conn = getConnection
+      statement = conn.prepareStatement("SELECT 1 FROM pg_logical_slot_get_changes(?,?, NULL)")
+      statement.setString(1, slotName)
+      statement.setString(2, upToLogSeqNum)
+      statement.execute()
+    } catch {
+      case NonFatal(e) =>
+        log.error("Failed to flush", e)
+    } finally {
+      attemptCloseStatement(statement)
+      attemptCloseConnection(conn)
+    }
   }
 
   def pullChanges(mode: Mode, slotName: String, maxItems: Int): List[SlotChange] = {
-    val pullChangesStatement = mode match {
-      case Modes.Get  => buildGetSlotChangesStatement(slotName, maxItems)
-      case Modes.Peek => buildPeekSlotChangesStatement(slotName, maxItems)
+
+    var conn: Connection = null
+    var pullChangesStatement: PreparedStatement = null
+    var rs: ResultSet = null
+
+    try {
+      conn = getConnection
+      pullChangesStatement = mode match {
+        case Modes.Get  => buildGetSlotChangesStatement(conn, slotName, maxItems)
+        case Modes.Peek => buildPeekSlotChangesStatement(conn, slotName, maxItems)
+      }
+      rs = pullChangesStatement.executeQuery()
+      val result = ArrayBuffer[SlotChange]()
+      while (rs.next()) {
+        val data = rs.getString("data")
+        val transactionId = rs.getLong("xid")
+        val location = Try(rs.getString("location"))
+          .getOrElse(rs.getString("lsn")) // in older versions of PG the column is called "lsn" not "location"
+        result += SlotChange(transactionId, location, data)
+      }
+      pullChangesStatement.close()
+      result.toList
+    } catch {
+      case NonFatal(e) =>
+        log.error("Failed to pull changes", e)
+        throw e
+    } finally {
+      attemptCloseResultSet(rs)
+      attemptCloseStatement(pullChangesStatement)
+      attemptCloseConnection(conn)
     }
-    val rs = pullChangesStatement.executeQuery()
-    val result = ArrayBuffer[SlotChange]()
-    while (rs.next()) {
-      val data = rs.getString("data")
-      val transactionId = rs.getLong("xid")
-      val location = Try(rs.getString("location"))
-        .getOrElse(rs.getString("lsn")) // in older versions of PG the column is called "lsn" not "location"
-      result += SlotChange(transactionId, location, data)
+  }
+
+  private def attemptCloseResultSet(rs: ResultSet): Unit =
+    attemptClose(rs, (s: ResultSet) => s.isClosed)
+
+  private def attemptCloseStatement(st: Statement): Unit =
+    attemptClose(st, (r: Statement) => r.isClosed)
+
+  private def attemptCloseConnection(conn: Connection): Unit =
+    attemptClose(conn, (c: Connection) => c.isClosed)
+
+  private def attemptClose[T <: AutoCloseable](resource: T, isClosed: T => Boolean): Unit = {
+    Option(resource) match { // null check
+      case Some(res) if !isClosed(res) =>
+        Try(res.close()).tap {
+          case Failure(e) =>
+            log.error("Failed to close resource: {}", resource.getClass.getName)
+          case _ =>
+        }
+      case _ => ()
     }
-    pullChangesStatement.close()
-    result.toList
   }
 
 }

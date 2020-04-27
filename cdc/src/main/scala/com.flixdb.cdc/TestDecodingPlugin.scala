@@ -2,14 +2,18 @@ package com.flixdb.cdc
 
 import java.time._
 
-import akka.event.LoggingAdapter
 import com.flixdb.cdc.PostgreSQL.SlotChange
 import fastparse.NoWhitespace._
 import fastparse._
+import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
 
+private[cdc] case class TestDecodingPlugin()
+
 private[cdc] object TestDecodingPlugin {
+
+  private val log = LoggerFactory.getLogger(classOf[TestDecodingPlugin])
 
   /*
   What we get from PostgreSQL is something like the following:
@@ -182,7 +186,7 @@ private[cdc] object TestDecodingPlugin {
       transactionId: Long,
       slotChanges: List[SlotChange],
       colsToIgnorePerTable: Map[String, List[String]]
-  )(implicit log: LoggingAdapter): ChangeSet = {
+  ): ChangeSet = {
 
     val ignoreTables: Set[String] = colsToIgnorePerTable.filter { case (_, v) => v == "*" :: Nil }.keys.toSet
 
@@ -196,7 +200,7 @@ private[cdc] object TestDecodingPlugin {
         instant = t.toInstant
         commitLogSeqNum = s.location
       case (s, f: Parsed.Failure) =>
-        log.error("failure {} when parsing {}", f.toString(), s.data)
+        log.error("Failure {} when parsing {}", f.toString(), s.data)
     }
 
     // we drop the first item and the last item since the first one is just the "BEGIN _" and the last one is the "COMMIT _ (at _)"
@@ -222,16 +226,15 @@ private[cdc] object TestDecodingPlugin {
         }
 
       case (s, f: Parsed.Failure) =>
-        log.error("failure {} when parsing {}", f.toString(), s.data)
+        log.error("Failure {} when parsing {}", f.toString(), s.data)
 
     }
 
     ChangeSet(transactionId, slotChanges.last.location, instant, result.toList)
   }
 
-  def transformSlotChanges(slotChanges: List[SlotChange], colsToIgnorePerTable: Map[String, List[String]])(
-      implicit log: LoggingAdapter
-  ): List[ChangeSet] =
+  def transformSlotChanges(slotChanges: List[SlotChange], colsToIgnorePerTable: Map[String, List[String]]):
+  List[ChangeSet] =
     slotChanges
       .groupBy(_.transactionId)
       .map {

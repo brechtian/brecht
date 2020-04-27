@@ -4,7 +4,6 @@ docker stop mypg
 docker rm mypg
 echo "Starting postgres104 container..."
 docker run -d -p5432:5432 --name mypg sebastianharko/postgres104:latest
-sleep 5
 echo "Running tests..."
 sbt cdc/test
 echo "Removing postgres104 test container ..."
