@@ -10,7 +10,7 @@ as soon as we are notified of a change to the data in the database). But more ge
 
 ## Note
 
-This module is part of FlixDb but it can be used independently. The module is used internally by FlixDb to stream events from its
+This module is part of FlixDb but it can be used independently. The module is succesfully used internally by FlixDb to stream events from its
 PostgreSQL backend to Kafka.
 
 ## How It Works
@@ -39,6 +39,10 @@ TODO: publish artifact.
 ### Reported Issues
 Feel free to use [Github]() to report issues but also to provide general feedback. You are also very welcome
 to discuss anything related to this module on the [Gitter]() channel. 
+
+### Samples
+
+Sample applications are available (in Java as well as in Scala) at this link: [examples]().
 
 ## Usage
 
