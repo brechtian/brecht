@@ -72,30 +72,30 @@ object PostgreSQLExtensionImpl {
   private val createTableStatement: String => String = (prefix: String) =>
     s"""|CREATE TABLE IF NOT EXISTS ${prefix}_events(
         |  "event_id" char(36) NOT NULL UNIQUE, 
-        |  "entity_id" varchar(255) NOT NULL,
+        |  "substream_id" varchar(255) NOT NULL,
         |  "event_type" varchar(255) NOT NULL,
         |  "sequence_num" int4 NOT NULL,
         |  "tstamp" bigint NOT NULL,
         |  "data" jsonb NOT NULL,
         |  "stream" varchar(255) NOT NULL,
         |  "tags" varchar[],
-        |  PRIMARY KEY ("sequence_num", "entity_id", "stream")
+        |  PRIMARY KEY ("sequence_num", "substream_id", "stream")
         |);
         |""".stripMargin
 
   private val createIndexStatement: String => String = (prefix: String) =>
-    s"""|CREATE INDEX IF NOT EXISTS "entity_id_index" ON "${prefix}_events" USING btree (
-        |  "entity_id", "stream" );
+    s"""|CREATE INDEX IF NOT EXISTS "substream_id_index" ON "${prefix}_events" USING btree (
+        |  "substream_id", "stream" );
         |""".stripMargin
 
   private def selectEventsForEntityIdStatement(prefix: String): String =
-    s"""SELECT * FROM "${prefix}_events" WHERE "entity_id" = ? AND "stream" = ? ORDER BY sequence_num ASC"""
+    s"""SELECT * FROM "${prefix}_events" WHERE "substream_id" = ? AND "stream" = ? ORDER BY sequence_num ASC"""
 
   private def getInsertEventStatement(prefix: String): String =
     s"""
        |INSERT INTO ${prefix}_events(
        | "event_id", 
-       | "entity_id",
+       | "substream_id",
        | "event_type",
        | "sequence_num",
        | "data",
@@ -108,10 +108,10 @@ object PostgreSQLExtensionImpl {
   sealed trait Request
 
   final case class GetEventsRequest(
-      namespace: String,
-      stream: String,
-      entityId: String,
-      resultPromise: Promise[GetEventsResult]
+                                     namespace: String,
+                                     stream: String,
+                                     subStreamId: String,
+                                     resultPromise: Promise[GetEventsResult]
   ) extends Request
 
   final case class GetEventsResult(eventEnvelopes: List[EventEnvelope])
@@ -173,7 +173,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
       }
     }(blockingExecContext)
 
-  private[core] def selectEvents(tablePrefix: String, stream: String, entityId: String): Future[List[EventEnvelope]] =
+  private[core] def selectEvents(tablePrefix: String, stream: String, subStreamId: String): Future[List[EventEnvelope]] =
     Future {
       var conn: Connection = null
       var statement: PreparedStatement = null
@@ -182,7 +182,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
         conn = ds.getConnection
         statement = conn.prepareStatement(selectEventsForEntityIdStatement(tablePrefix))
         statement.setQueryTimeout(1) // TODO: move to configuration
-        statement.setString(1, entityId)
+        statement.setString(1, subStreamId)
         statement.setString(2, stream)
         resultSet = statement.executeQuery()
         val result: List[EventEnvelope] = unrollResultSetIntoEventEnvelopes(resultSet, Nil)
@@ -190,7 +190,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
       } catch {
         case NonFatal(e: Throwable) =>
           val ex = convertException(e)
-          logger.error(ex, "Failed to get events for entity with id {}", entityId)
+          logger.error(ex, "Failed to get events for entity with id {}", subStreamId)
           throw ex
       } finally {
         attemptCloseResultSet(resultSet)
@@ -239,7 +239,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
     statement.setQueryTimeout(1) // TODO: move to configuration
     ees.foreach { envelope: EventEnvelope =>
       statement.setString(1, envelope.eventId)
-      statement.setString(2, envelope.entityId)
+      statement.setString(2, envelope.subStreamId)
       statement.setString(3, envelope.eventType)
       statement.setInt(4, envelope.sequenceNum)
       statement.setObject(5, createPGJsonObject(envelope.data))
@@ -331,7 +331,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
 
   private def resultSetToEventEnvelope(rs: ResultSet): EventEnvelope =
     // "event_id" char(36) NOT NULL
-    // "entity_id" varchar(255) NOT NULL
+    // "substream_id" varchar(255) NOT NULL
     // "event_type" varchar(255) NOT NULL
     // "sequence_num" int4 NOT NULL
     // "tstamp" timestamp(6) NOT NULL DEFAULT now()
@@ -340,7 +340,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
     // "tags" varchar[]
     EventEnvelope(
       eventId = rs.getString("event_id"),
-      entityId = rs.getString("entity_id"),
+      subStreamId = rs.getString("substream_id"),
       eventType = rs.getString("event_type"),
       sequenceNum = rs.getInt("sequence_num"),
       timestamp = rs.getLong("tstamp"),
@@ -380,7 +380,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
               }
             result
           case request: GetEventsRequest =>
-            selectEvents(request.namespace, request.stream, request.entityId)
+            selectEvents(request.namespace, request.stream, request.subStreamId)
               .map(r => GetEventsResult(r))
               .transformWith {
                 case r @ Success(_) =>
@@ -430,11 +430,11 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
       }
   }
 
-  def getEvents(namespace: String, stream: String, entityId: String): Future[GetEventsResult] = {
+  def getEvents(namespace: String, stream: String, subStreamId: String): Future[GetEventsResult] = {
     import system.dispatcher
     val p = Promise[GetEventsResult]
     requestsStream
-      .offer(GetEventsRequest(namespace, stream, entityId, p))
+      .offer(GetEventsRequest(namespace, stream, subStreamId, p))
       .flatMap {
         case QueueOfferResult.Enqueued =>
           p.future

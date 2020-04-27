@@ -11,7 +11,7 @@ message PbEventEnvelope {
 
 message PbPublishEventsRequest {
   string namespace = 1;
-  string entityId = 2;
+  string subStreamId = 2;
   string stream = 3;
   repeated PbEventEnvelope eventEnvelopes = 4;
 }

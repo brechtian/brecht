@@ -18,17 +18,17 @@ class EventStoreControllerImpl(system: ExtendedActorSystem) extends Extension {
 
   // start change data capture stream to Kafka
   private val cdc = CdcStreamingToKafka(system)
-  private val entitySharding = EntitySharding(system)
+  private val entitySharding = SubStreamSharding(system)
 
   private val entities = entitySharding.entities
 
-  def getEvents(namespace: String, stream: String, entityId: String): Future[PbGetEventsResult] = {
+  def getEvents(namespace: String, stream: String, subStreamId: String): Future[PbGetEventsResult] = {
     import scala.concurrent.duration._
     implicit val timeout = akka.util.Timeout(1.seconds) // TODO: move to configuration
     val pbMsg = PbGetEventsRequest.defaultInstance
       .withNamespace(namespace)
       .withStream(stream)
-      .withEntityId(entityId)
+      .withSubStreamId(subStreamId)
     import akka.pattern.ask
     (entities ? pbMsg).mapTo[PbGetEventsResult]
   }

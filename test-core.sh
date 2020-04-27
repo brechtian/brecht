@@ -1,4 +1,6 @@
 #!/bin/bash
+export CLUSTER_API_KEY=none
+export CLUSTER_API_SECRET=none
 echo "Removing postgres104 test container if running..."
 docker stop mypg 
 docker rm mypg

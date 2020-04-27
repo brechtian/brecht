@@ -3,7 +3,7 @@ package com.flixdb.core.protobuf.GetMsgs;
 
 message PbEventEnvelope {
   string eventId = 1;
-  string entityId = 2;
+  string subStreamId = 2;
   string eventType = 3;
   int32 sequenceNum = 4;
   string data = 5;
@@ -15,7 +15,7 @@ message PbEventEnvelope {
 message PbGetEventsRequest {
   string namespace = 1;
   string stream = 2;
-  string entityId = 3;
+  string subStreamId = 3;
 }
 
 message PbGetEventsResult {

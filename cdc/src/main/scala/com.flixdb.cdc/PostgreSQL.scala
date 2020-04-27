@@ -2,14 +2,13 @@ package com.flixdb.cdc
 
 import java.sql.{Connection, PreparedStatement, ResultSet, Statement}
 
-import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.{Failure, Try}
-import scala.util.control.NonFatal
 import scala.util.chaining._
+import scala.util.control.NonFatal
+import scala.util.{Failure, Try}
 
 private[cdc] object PostgreSQL {
 

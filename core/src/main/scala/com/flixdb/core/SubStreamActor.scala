@@ -13,9 +13,9 @@ import com.flixdb.core.{PostgreSQLExtensionImpl => Journal}
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class EntityActor extends Actor with ActorLogging with Stash {
+class SubStreamActor extends Actor with ActorLogging with Stash {
 
-  import EntityActor._
+  import SubStreamActor._
   import context.dispatcher
 
   context.setReceiveTimeout(120.seconds) // TODO: move to configuration
@@ -35,10 +35,10 @@ class EntityActor extends Actor with ActorLogging with Stash {
 
   override def receive: Receive = {
     case req: PbGetEventsRequest =>
-      triggerRecovery(req.namespace, req.stream, req.entityId)
+      triggerRecovery(req.namespace, req.stream, req.subStreamId)
       stash()
     case req: PbPublishEventsRequest =>
-      triggerRecovery(req.namespace, req.stream, req.entityId)
+      triggerRecovery(req.namespace, req.stream, req.subStreamId)
       stash()
     case _ =>
       log.debug("Received unknown message")
@@ -61,7 +61,7 @@ class EntityActor extends Actor with ActorLogging with Stash {
       if (isRequestValid(this.eventEnvelopes, req)) {
         // the request is valid
         val timestamp = System.currentTimeMillis()
-        val eventEnvelopesToInsert = fromProtobuf(req.stream, req.entityId, timestamp, req.eventEnvelopes)
+        val eventEnvelopesToInsert = fromProtobuf(req.stream, req.subStreamId, timestamp, req.eventEnvelopes)
         val f: Future[PublishEventsResult] = journal
           .publishEvents(req.namespace, eventEnvelopesToInsert)
         pipe(f).to(self, sender)
@@ -135,7 +135,7 @@ class EntityActor extends Actor with ActorLogging with Stash {
 
 }
 
-object EntityActor {
+object SubStreamActor {
 
   def isRequestValid(
       currentState: List[EventEnvelope],
@@ -162,7 +162,7 @@ object EntityActor {
   def toProtobuf(eventEnvelopes: List[EventEnvelope]): List[GetMsgs.PbEventEnvelope] = {
     eventEnvelopes.map(ee => {
       GetMsgs.PbEventEnvelope.defaultInstance
-        .withEntityId(ee.entityId)
+        .withSubStreamId(ee.subStreamId)
         .withData(ee.data)
         .withEventId(ee.eventId)
         .withEventType(ee.eventType)
@@ -183,7 +183,7 @@ object EntityActor {
     eventEnvelopes.map(ee =>
       EventEnvelope(
         eventId = ee.eventId,
-        entityId = entityId,
+        subStreamId = entityId,
         eventType = ee.eventType,
         sequenceNum = ee.sequenceNum,
         data = ee.data,

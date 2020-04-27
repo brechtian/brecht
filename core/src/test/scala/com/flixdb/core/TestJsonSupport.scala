@@ -13,7 +13,7 @@ class TestJsonSupport extends JsonSupport with AnyFunSuiteLike with BeforeAndAft
     val e1 = Dtos.Event(
       eventId = "1af2948a-d4dd-48b0-8ca0-cb0fe7562b3d",
       eventType = "com.megacorp.AccountCreated",
-      entityId = "account-123",
+      subStreamId = "account-123",
       sequenceNum = 1,
       data = """{"owner":"John Smith"}""",
       stream = "account-events",
@@ -23,7 +23,7 @@ class TestJsonSupport extends JsonSupport with AnyFunSuiteLike with BeforeAndAft
 
     val json: JsValue = e1.toJson
     val r = json.compactPrint;
-    r shouldBe """{"data":{"owner":"John Smith"},"entityId":"account-123","eventId":"1af2948a-d4dd-48b0-8ca0-cb0fe7562b3d","eventType":"com.megacorp.AccountCreated","sequenceNum":1,"stream":"account-events","tags":["megacorp-events"],"timestamp":42}"""
+    r shouldBe """{"data":{"owner":"John Smith"},"eventId":"1af2948a-d4dd-48b0-8ca0-cb0fe7562b3d","eventType":"com.megacorp.AccountCreated","sequenceNum":1,"stream":"account-events","subStreamId":"account-123","tags":["megacorp-events"],"timestamp":42}"""
   }
 
   test("DTOs: we can deserialize json to 'PostEvent'") {

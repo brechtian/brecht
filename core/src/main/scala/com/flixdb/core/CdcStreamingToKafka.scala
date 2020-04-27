@@ -74,8 +74,8 @@ class CdcActor extends Actor with ActorLogging {
     .collect {
       case RowInserted(schemaName, tableName, commitLogSeqNum, transactionId, data: Map[String, String], schema) =>
         val stream = data.get("stream")
-        val entityId = data.get("entityId")
-        log.info("change data capture {} {} ", stream, entityId)
+        val subStreamId = data.get("substream_id")
+        log.info("change data capture {} {} ", stream, subStreamId)
         val value = data.toJson.compactPrint
         new ProducerRecord[String, String](topic, value)
     }

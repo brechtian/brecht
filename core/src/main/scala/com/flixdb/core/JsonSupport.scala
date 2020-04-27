@@ -8,7 +8,7 @@ object Dtos {
 
   final case class Event(
       eventId: String,
-      entityId: String,
+      subStreamId: String,
       eventType: String,
       sequenceNum: Int,
       data: String,
@@ -37,7 +37,7 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
     override def write(ee: Event): JsValue =
       JsObject(
         "eventId" -> JsString(ee.eventId),
-        "entityId" -> JsString(ee.entityId),
+        "subStreamId" -> JsString(ee.subStreamId),
         "eventType" -> JsString(ee.eventType),
         "sequenceNum" -> JsNumber(ee.sequenceNum),
         "data" -> ee.data.parseJson,

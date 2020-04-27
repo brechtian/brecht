@@ -14,7 +14,7 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
     val existing =
       EventEnvelope(
         eventId = "a4157b56-a915-4f1c-95c9-3907f47c9d0e",
-        entityId = "account-42",
+        subStreamId = "account-42",
         eventType = "com.megacorp.AccountCreated",
         sequenceNum = 0,
         data = """{"owner": 42}""",
@@ -40,10 +40,10 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
     val request = PublishMsgs.PbPublishEventsRequest.defaultInstance
       .withNamespace("default")
       .withStream("accounts")
-      .withEntityId("account-42")
+      .withSubStreamId("account-42")
       .withEventEnvelopes(List(event1, event2))
 
-    val result = EntityActor.deduplicate(existing, request)
+    val result = SubStreamActor.deduplicate(existing, request)
 
     result.eventEnvelopes.size shouldBe 1
     result.eventEnvelopes.head.eventId shouldBe "431b2c79-6d10-4de8-b420-795d8d6f79ef"
@@ -59,7 +59,7 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
       .withEventType("com.megacorp.AccountCreated")
       .withTags(List("accounts", "users"))
 
-    val result = EntityActor.fromProtobuf(
+    val result = SubStreamActor.fromProtobuf(
       stream = "accounts",
       entityId = "42",
       timestamp = Long.MaxValue,
@@ -76,7 +76,7 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
     element.eventType shouldBe event1.eventType
     element.tags shouldBe event1.tags.toList
     element.stream shouldBe "accounts"
-    element.entityId shouldBe "42"
+    element.subStreamId shouldBe "42"
     element.timestamp shouldBe Long.MaxValue
 
   }
@@ -85,7 +85,7 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
 
     val event1: EventEnvelope = EventEnvelope(
       eventId = randomUUID().toString,
-      entityId = s"account-1",
+      subStreamId = s"account-1",
       eventType = "com.megacorp.AccountCreated",
       sequenceNum = 0,
       data = """{"owner": "John Smith"}""",
@@ -94,12 +94,12 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
       timestamp = 42L
     )
 
-    val result = EntityActor.toProtobuf(event1 :: Nil)
+    val result = SubStreamActor.toProtobuf(event1 :: Nil)
     result shouldBe an[List[PublishMsgs.PbEventEnvelope]]
     val element = result.head
 
     element.eventId shouldBe event1.eventId
-    element.entityId shouldBe event1.entityId
+    element.subStreamId shouldBe event1.subStreamId
     element.eventType shouldBe event1.eventType
     element.data shouldBe event1.data
     element.sequenceNum shouldBe event1.sequenceNum
@@ -117,7 +117,7 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
       .map(i =>
         EventEnvelope(
           eventId = randomId,
-          entityId = "account-42",
+          subStreamId = "account-42",
           eventType = "MoneyIn",
           sequenceNum = i,
           data = """{"amount":888}""",
@@ -130,11 +130,11 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
 
     val newEvents = (2 to 4).map(i => PublishMsgs.PbEventEnvelope.defaultInstance.withSequenceNum(i))
 
-    EntityActor.validateSeqNumberRange(
+    SubStreamActor.validateSeqNumberRange(
       existingEvents,
       PublishMsgs.PbPublishEventsRequest.defaultInstance
         .withNamespace("default")
-        .withEntityId("42")
+        .withSubStreamId("42")
         .withStream("accounts")
         .withEventEnvelopes(newEvents)
     ) shouldBe true
@@ -151,7 +151,7 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
       .map(i =>
         EventEnvelope(
           eventId = randomId,
-          entityId = "account-42",
+          subStreamId = "account-42",
           eventType = "MoneyIn",
           sequenceNum = i,
           data = """{"amount":888}""",
@@ -164,11 +164,11 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
 
     val newEvents = (3 to 5).map(i => PublishMsgs.PbEventEnvelope.defaultInstance.withSequenceNum(i))
 
-    EntityActor.validateSeqNumberRange(
+    SubStreamActor.validateSeqNumberRange(
       existingEvents,
       PublishMsgs.PbPublishEventsRequest.defaultInstance
         .withNamespace("default")
-        .withEntityId("42")
+        .withSubStreamId("42")
         .withStream("accounts")
         .withEventEnvelopes(newEvents)
     ) shouldBe false
@@ -179,11 +179,11 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
 
   test("Sequence number validation (3)") {
 
-    EntityActor.validateSeqNumberRange(
+    SubStreamActor.validateSeqNumberRange(
       eventEnvelopes = Nil,
       PublishMsgs.PbPublishEventsRequest.defaultInstance
         .withNamespace("default")
-        .withEntityId("42")
+        .withSubStreamId("42")
         .withStream("accounts")
         .withEventEnvelopes(Nil)
     ) shouldBe true
@@ -196,11 +196,11 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
 
     val newEvents = (0 to 5).map(i => PublishMsgs.PbEventEnvelope.defaultInstance.withSequenceNum(i))
 
-    EntityActor.validateSeqNumberRange(
+    SubStreamActor.validateSeqNumberRange(
       existingEvents,
       PublishMsgs.PbPublishEventsRequest.defaultInstance
         .withNamespace("default")
-        .withEntityId("42")
+        .withSubStreamId("42")
         .withStream("accounts")
         .withEventEnvelopes(newEvents)
     ) shouldBe true
@@ -215,11 +215,11 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
 
     val newEvents = (1 to 5).map(i => PublishMsgs.PbEventEnvelope.defaultInstance.withSequenceNum(i))
 
-    EntityActor.validateSeqNumberRange(
+    SubStreamActor.validateSeqNumberRange(
       existingEvents,
       PublishMsgs.PbPublishEventsRequest.defaultInstance
         .withNamespace("default")
-        .withEntityId("42")
+        .withSubStreamId("42")
         .withStream("accounts")
         .withEventEnvelopes(newEvents)
     ) shouldBe false
@@ -236,7 +236,7 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
       .map(i =>
         EventEnvelope(
           eventId = randomId,
-          entityId = "account-42",
+          subStreamId = "account-42",
           eventType = "MoneyIn",
           sequenceNum = i,
           data = """{"amount":888}""",
@@ -249,11 +249,11 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
 
     val newEvents = Nil
 
-    EntityActor.validateSeqNumberRange(
+    SubStreamActor.validateSeqNumberRange(
       existingEvents,
       PublishMsgs.PbPublishEventsRequest.defaultInstance
         .withNamespace("default")
-        .withEntityId("42")
+        .withSubStreamId("42")
         .withStream("accounts")
         .withEventEnvelopes(newEvents)
     ) shouldBe true

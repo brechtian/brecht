@@ -70,7 +70,7 @@ class HttpInterface(implicit system: ActorSystem) extends JsonSupport {
                       .map((item: PbEventEnvelope) =>
                         Dtos.Event(
                           eventId = item.eventId,
-                          entityId = item.entityId,
+                          subStreamId = item.subStreamId,
                           eventType = item.eventType,
                           sequenceNum = item.sequenceNum,
                           data = item.data,
@@ -101,7 +101,7 @@ class HttpInterface(implicit system: ActorSystem) extends JsonSupport {
                     protobuf.PublishMsgs.PbPublishEventsRequest.defaultInstance
                       .withNamespace(namespace)
                       .withStream(stream)
-                      .withEntityId(entityId)
+                      .withSubStreamId(entityId)
                       .withEventEnvelopes(
                         envelopesToPublish.events.map(envelope =>
                           protobuf.PublishMsgs.PbEventEnvelope(

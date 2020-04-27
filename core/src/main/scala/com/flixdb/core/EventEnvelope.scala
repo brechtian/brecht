@@ -2,7 +2,7 @@ package com.flixdb.core
 
 /**
   * @param eventId UUID for this event
-  * @param entityId Id of the domain entity (e.g., account|123)
+  * @param subStreamId Id of the domain entity (e.g., account-123)
   * @param eventType FQN of the event class
   * @param sequenceNum Sequence number of the event (per entity)
   * @param data JSON data (actual event payload)
@@ -12,7 +12,7 @@ package com.flixdb.core
   */
 final case class EventEnvelope(
     eventId: String,
-    entityId: String,
+    subStreamId: String,
     eventType: String,
     sequenceNum: Int,
     data: String,

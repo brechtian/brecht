@@ -53,7 +53,7 @@ class TestPostgreSQLCompatibleDb
 
   val event1: EventEnvelope = EventEnvelope(
     eventId = randomUUID().toString,
-    entityId = event1EntityId,
+    subStreamId = event1EntityId,
     eventType = "com.megacorp.AccountCreated",
     sequenceNum = 0,
     data = """{"owner": "John Smith"}""",
@@ -64,7 +64,7 @@ class TestPostgreSQLCompatibleDb
 
   val event2: EventEnvelope = EventEnvelope(
     eventId = randomUUID().toString,
-    entityId = s"account|${randomUUID().toString}",
+    subStreamId = s"account|${randomUUID().toString}",
     eventType = "com.megacorp.AccountCreated",
     sequenceNum = 0,
     data = """{"owner": "Rachel Smith"}""",
@@ -75,7 +75,7 @@ class TestPostgreSQLCompatibleDb
 
   val event3: EventEnvelope = EventEnvelope(
     eventId = randomUUID().toString,
-    entityId = s"account|${randomUUID().toString}",
+    subStreamId = s"account|${randomUUID().toString}",
     eventType = "com.megacorp.AccountCreated",
     sequenceNum = 0,
     data = """{"owner": "Daniel Smith"}""",
@@ -149,7 +149,7 @@ class TestPostgreSQLCompatibleDb
     val fetchedEvent = result.asInstanceOf[List[EventEnvelope]].head
 
     fetchedEvent.eventId shouldBe event1.eventId
-    fetchedEvent.entityId shouldBe event1.entityId
+    fetchedEvent.subStreamId shouldBe event1.subStreamId
     fetchedEvent.eventType shouldBe event1.eventType
     fetchedEvent.sequenceNum shouldBe event1.sequenceNum
     fetchedEvent.timestamp should not be -1
