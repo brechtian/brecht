@@ -12,7 +12,7 @@ import akka.actor.{
 }
 import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings}
 import akka.kafka.scaladsl.Producer
-import com.flixdb.cdc.{ChangeDataCapture, PgCdcSourceSettings, PostgreSQLInstance, RowInserted}
+import com.flixdb.cdc.{ChangeDataCapture, PgCdcSourceSettings, RowInserted}
 import com.flixdb.core.CdcActor.Start
 import org.apache.kafka.clients.producer.ProducerRecord
 
@@ -67,8 +67,8 @@ class CdcActor extends Actor with ActorLogging {
 
   val stream = ChangeDataCapture
     .source(
-      PostgreSQLInstance(dataSource, "cdc"),
-      PgCdcSourceSettings() // default settings
+      dataSource,
+      PgCdcSourceSettings().withSlotName("ds") // default settings
     )
     .mapConcat(_.changes)
     .collect {

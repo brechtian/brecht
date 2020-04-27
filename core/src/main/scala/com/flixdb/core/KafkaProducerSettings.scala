@@ -1,7 +1,5 @@
 package com.flixdb.core
 
-import java.util.Properties
-
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 import akka.kafka.ProducerSettings
 import com.typesafe.config.Config

@@ -36,8 +36,6 @@ class PostgreSQLCapturerSpec
 
   lazy val ds: HikariDataSource = new HikariDataSource(cfg)
 
-  lazy val postgreSQLInstance: PostgreSQLInstance = PostgreSQLInstance(ds, slotName = "scalatest")
-
   lazy val conn = ds.getConnection()
 
   override def beforeAll(): Unit = {
@@ -139,7 +137,7 @@ class PostgreSQLCapturerSpec
       val emptyData = Map.empty[String, String]
 
       ChangeDataCapture
-        .source(postgreSQLInstance, PgCdcSourceSettings())
+        .source(dataSource = ds, PgCdcSourceSettings().withSlotName("scalatest"))
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
         .runWith(TestSink.probe[ChangeSet])
@@ -242,7 +240,7 @@ class PostgreSQLCapturerSpec
       deleteSale(conn, 0)
 
       ChangeDataCapture
-        .source(postgreSQLInstance, PgCdcSourceSettings())
+        .source(ds, PgCdcSourceSettings().withSlotName("scalatest"))
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -309,7 +307,7 @@ class PostgreSQLCapturerSpec
       deletePurchaseOrder(conn, id = 0)
 
       ChangeDataCapture
-        .source(postgreSQLInstance, PgCdcSourceSettings())
+        .source(ds, PgCdcSourceSettings().withSlotName("scalatest"))
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -337,7 +335,7 @@ class PostgreSQLCapturerSpec
       import javax.xml.bind.DatatypeConverter // this has a parseHexBinary method that turns out to be useful here
 
       ChangeDataCapture
-        .source(postgreSQLInstance, PgCdcSourceSettings())
+        .source(ds, PgCdcSourceSettings().withSlotName("scalatest"))
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -362,7 +360,7 @@ class PostgreSQLCapturerSpec
       deleteEmployees(conn)
 
       ChangeDataCapture
-        .source(postgreSQLInstance, PgCdcSourceSettings())
+        .source(ds, PgCdcSourceSettings().withSlotName("scalatest"))
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -387,7 +385,7 @@ class PostgreSQLCapturerSpec
       deleteWeathers(conn)
 
       ChangeDataCapture
-        .source(postgreSQLInstance, PgCdcSourceSettings())
+        .source(ds, PgCdcSourceSettings().withSlotName("scalatest"))
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -421,8 +419,8 @@ class PostgreSQLCapturerSpec
 
       ChangeDataCapture
         .source(
-          postgreSQLInstance,
-          PgCdcSourceSettings()
+          ds,
+          PgCdcSourceSettings().withSlotName("scalatest")
             .withColumnsToIgnore(Map("employees" -> List("*"), "sales" -> List("info")))
         )
         .mapConcat(_.changes)

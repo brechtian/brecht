@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives.{as, complete, entity, get, onSuccess, path, post, _}
-import akka.http.scaladsl.server.ExceptionHandler
+import akka.http.scaladsl.server.{ExceptionHandler, StandardRoute}
 import com.flixdb.core.protobuf.GetMsgs.{PbEventEnvelope, PbGetEventsResult}
 import com.flixdb.core.protobuf.PublishMsgs.PbPublishEventsResult
 import spray.json.DeserializationException
@@ -25,7 +25,7 @@ class HttpInterface(implicit system: ActorSystem) extends JsonSupport {
         complete(StatusCodes.InternalServerError)
     }
 
-  private def handleError(err: PbGetEventsResult.ErrorReason) = {
+  private def handleError(err: PbGetEventsResult.ErrorReason): StandardRoute = {
     err match {
       case e: PbGetEventsResult.ErrorReason.Unrecognized =>
         complete(StatusCodes.InternalServerError)
@@ -40,7 +40,7 @@ class HttpInterface(implicit system: ActorSystem) extends JsonSupport {
     }
   }
 
-  private def handleError(err: PbPublishEventsResult.ErrorReason) = {
+  private def handleError(err: PbPublishEventsResult.ErrorReason): StandardRoute = {
     err match {
       case e: PbPublishEventsResult.ErrorReason.Unrecognized =>
         complete(StatusCodes.InternalServerError)

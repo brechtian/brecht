@@ -3,6 +3,7 @@ package com.flixdb.cdc
 import java.sql.{Connection, PreparedStatement, ResultSet, Statement}
 
 import com.zaxxer.hikari.HikariDataSource
+import javax.sql.DataSource
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
@@ -20,7 +21,7 @@ private[cdc] object PostgreSQL {
 
 }
 
-private[cdc] case class PostgreSQL(ds: HikariDataSource) {
+private[cdc] case class PostgreSQL(ds: DataSource) {
 
   import PostgreSQL._
 

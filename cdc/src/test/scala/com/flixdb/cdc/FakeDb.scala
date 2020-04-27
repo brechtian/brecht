@@ -1,6 +1,6 @@
 package com.flixdb.cdc
 
-import java.sql.{Connection, DriverManager}
+import java.sql.Connection
 
 import org.postgresql.util.PGobject
 

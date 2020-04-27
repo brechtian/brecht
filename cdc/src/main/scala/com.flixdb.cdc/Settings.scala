@@ -31,6 +31,7 @@ object Plugins {
 /** Settings for the PostgreSQL CDC source
   *
   * @param mode Choose between "at most once delivery" / "at least once"
+  * @param slotName Name of the logical decoding slot
   * @param createSlotOnStart Create logical decoding slot when the source starts (if it doesn't already exist...)
   * @param dropSlotOnFinish Drop the logical decoding slot when the source stops
   * @param plugin Plugin to use. Only "test_decoding" supported right now.
@@ -40,6 +41,7 @@ object Plugins {
   */
 final case class PgCdcSourceSettings(
     mode: Mode = Modes.Get,
+    slotName: String = null,
     createSlotOnStart: Boolean = true,
     dropSlotOnFinish: Boolean = false,
     plugin: Plugin = Plugins.TestDecoding,
@@ -50,6 +52,9 @@ final case class PgCdcSourceSettings(
 
   def withMode(mode: Mode): PgCdcSourceSettings =
     copy(mode = mode)
+
+  def withSlotName(slotName: String): PgCdcSourceSettings =
+    copy(slotName = slotName)
 
   def withCreateSlotOnStart(createSlotOnStart: Boolean): PgCdcSourceSettings =
     copy(createSlotOnStart = createSlotOnStart)
@@ -65,9 +70,11 @@ final case class PgCdcSourceSettings(
 
 }
 
-final case class PostgreSQLInstance(hikariDataSource: HikariDataSource, slotName: String)
-
-final case class PgCdcAckSinkSettings(maxItems: Int = 16, maxItemsWait: FiniteDuration = 3000.milliseconds) {
+final case class PgCdcAckSinkSettings(
+    slotName: String,
+    maxItems: Int = 16,
+    maxItemsWait: FiniteDuration = 3000.milliseconds
+) {
 
   def withMaxItemsWait(maxItemsWait: FiniteDuration): PgCdcAckSinkSettings =
     copy(maxItemsWait = maxItemsWait)
