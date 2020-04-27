@@ -37,8 +37,8 @@ The PostgreSQL JDBC driver is included in the main JAR.
 TODO: publish artifact.
 
 ### Reported Issues
-[Github]()
-
+Feel free to use [Github]() to report issues but also to provide general feedback. You are also very welcome
+to discuss anything related to this module on the [Gitter]() channel. 
 
 ## Usage
 
