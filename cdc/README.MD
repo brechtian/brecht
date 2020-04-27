@@ -2,10 +2,16 @@
 
 This provides an Akka Stream Source that can stream changes from a PostgreSQL database. Here, by
 "change", we mean database events such as: RowDeleted(..), RowInserted(..), RowUpdated(..). A
-typical practical use case  is to have a stream that continuously replicates data from PostgreSQL to ElasticSearch. 
-Another use case is to stream changes from the database in order to display the changes 
-as notifications in a Web UI. But more generally, this provides the tooling for implementing the [Strangler Application](https://www.martinfowler.com/bliki/StranglerApplication.html) /
+typical practical use case  is to have a stream that continuously replicates some data from PostgreSQL to ElasticSearch. 
+Another common use case is to stream changes from the database in order to display the changes 
+as notifications in a Web UI. Another possible use case is cache invalidation (e.g., trigger cache invalidation
+as soon as we are notified of a change to the data in the database). But more generally, this provides the tooling for implementing the [Strangler Application](https://www.martinfowler.com/bliki/StranglerApplication.html) /
 [Event Interception](https://www.martinfowler.com/bliki/EventInterception.html) patterns that Martin Fowler popularized.
+
+## Note
+
+This module is part of FlixDb but it can be used independently. The module is used internally by FlixDb to stream events from its
+PostgreSQL backend to Kafka.
 
 ## How It Works
 
@@ -54,19 +60,16 @@ a configuration panel instead:
 
 ### Source Settings
 
-We configure the source using [PostgreSQLInstance]() and [PgCdcSourceSettings]():
+To build a Source we need a DataSource (we recommend HikariCP) and [PgCdcSourceSettings](). Our goal is 
+to make [PgCdcSourceSettings]() have good defaults so for most use cases you'll never have to change
+anything. You do need to specify the slotName though. 
 
-[PostgreSQLInstance]():
-
-|Setting                 | Meaning                           | Required|
-| -----------------------|-----------------------------------|---------|
-| HikariCP Data Source   | A data source from where we can get a connection | yes     |
-| slot name              | name of logical replication slot  | yes     |
 
 [PgCdcSourceSettings]():
 
 | Setting           | Meaning                                       | Default      | Required |
 | ------------------|-----------------------------------------------|--------------|----------|
+| slotName          | name of the logical replication slot          | null         | yes      |
 | createSlotOnStart | create the logical replication slot on start  | true         | no       |
 | dropSlotOnFinish  | drop the logical replication slot on stop     | false        | no       |
 | plugin            | only one option as of now                     | TestDecoding | no       |
@@ -77,18 +80,13 @@ We configure the source using [PostgreSQLInstance]() and [PgCdcSourceSettings]()
 
 Example source settings:
 
-
 Scala
 
 ```
- 
-val postgreSQLInstance = PostgreSQLInstance(hikariDataSource, "slot_name")
-
-val changeDataCaptureSettings = PgCdcSourceSettings()
-  .withCreateSlotOnStart(false)
-  .withMaxItems(256)
-  .withPollInterval(7.seconds)
-  .withMode(Modes.Peek)
+val changeDataCaptureSettings = PgCdcSourceSettings()]
+  .withSlotName("cdc")
+  .withCreateSlotOnStart(true) 
+  .withMode(Modes.Get)
   .withColumnsToIgnore(Map("images" -> List("binary"), "user_personal_information" -> List("*")))
   // ignore the binary column in the images table and ignore the user_personal_information table
 ```
@@ -103,8 +101,8 @@ implicit val system: ActorSystem = ActorSystem()
 val slotName = "slot_name"
 
 ChangeDataCapture
-  .source(PostgreSQLInstance(hikariDataSource, slotName), PgCdcSourceSettings())
-  .log("postgresqlcdc", cs ⇒ s"captured changes: ${cs.toString}")
+  .source(hikariDataSource, PgCdcSourceSettings().withSlotName(slotName))
+  .log("postgresqlcdc", cs ⇒ s"Captured changes: ${cs.toString}")
   .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
   .to(Sink.ignore)
   .run()
@@ -113,19 +111,18 @@ ChangeDataCapture
 
 ### Ack Sink Settings
 
-We configure the Ack sink using [PostgreSQLInstance]()
+You'll only need an Ack Sink if you choose the "at least once" delivery mode.
 
-[PostgreSQLInstance]()
+To build a Sink we need a DataSource (e.g., HikariCP) and a [PgAckSinkSettings]() object.
+Our goal is to make [PgAckSinkSettings]() have good defaults so for most use cases you'll never have to change
+anything. You do need to specify the slotName though. 
 
-|Setting                 | Meaning                           | Required|
-| -----------------------|-----------------------------------|---------|
-| HikariCP Data Source | A data source from where we can get a connection | yes     |
-| slot name              | name of logical replication slot  | yes     |
 
 [PgAckSinkSettings]()
 
 |Setting               |Meaning                                                                     | Default              | Required |
 |----------------------|----------------------------------------------------------------------------|----------------------|----------|
+| slotName             | name of the logical replication slot                                       |                      | yes      |               
 | maxItems             | ideal number of items to acknowledge at once                               | 16                   | no       |
 | maxItemsWait         | maximum duration for which the stage waits until maxItems have accumulated | 3 second             | no       |
 
@@ -133,7 +130,7 @@ We configure the Ack sink using [PostgreSQLInstance]()
 ### Ack Sink Usage
 
 You want to map these database change events (i.e. RowInserted) to domain events
-(i.e. UserRegistered - aiming to adopt a Domain Driven Design approach) and publish the domain events to a queue (e.g, AWS SQS)
+(i.e. UserRegistered - aiming to adopt a Domain Driven Design approach) and publish the domain events to a queue (e.g, Kafka or AWS SQS)
 and use the Ack Sink to acknowledge consumption.
 
 ```
@@ -143,19 +140,18 @@ case class UserRegistered(id: String)
 
 val slotName = "slot_name"
 
-val pgSqlInstance = PostgreSQLInstance(hikariDataSource, slotName)
-val source = ChangeDataCapture.source(pgSqlInstance, PgCdcSourceSettings())
-val ackSink = ChangeDataCapture.ackSink(pgSqlInstance, PgCdcAckSinkSettings())
+val source = ChangeDataCapture.source(hikariDataSource, PgCdcSourceSettings().withSlotName(slotName))
+val ackSink = ChangeDataCapture.ackSink(hikariDataSource, PgCdcAckSinkSettings().withSlotName(slotName))
 
 source
   .mapConcat(_.changes)
   .collect { // collect is map and filter
-    case change @ RowInserted("public", "users", _, _, data) ⇒
+    case change @ RowInserted("public", "users", _, _, data) =>
       val userId = data("user_id")
       (change, UserRegistered(userId))
   }
   .map(identity) // do something useful e.g., publish to SQS
-  .map(t ⇒ AckLogSeqNum(t._1.commitLogSeqNum))
+  .map(t => AckLogSeqNum(t._1.commitLogSeqNum))
   .to(ackSink) // acknowledge
   .run()
 
@@ -170,9 +166,16 @@ index added, change of column type etc.).
     * Unless the table has a non-default `REPLICA IDENTITY` setting. To get the full previous version of the row: `ALTER TABLE "TABLE_NAME" REPLICA IDENTITY FULL`.
 * It doesn't work with older version of PostgreSQL (i.e < 9.4).
 
-## Important Note
+## Important Notes
 
-Remember to drop the slot when you decide you no longer need the change data capture pipeline
+1. Remember to drop the slot when you decide you no longer need the change data capture pipeline
 ```
 SELECT * FROM pg_drop_replication_slot('name')
-```
+``` 
+
+## Support
+
+FlixDb is sponsored by consulting services. The author(s) provide services centered around 
+event driven systems. Send a direct email to flixdb@protonmail.com.
+
+

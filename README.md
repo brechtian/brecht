@@ -6,8 +6,8 @@ FlixDb is an event store for DDD/CQRS/ES systems. Backed up by PostgreSQL, it se
 Very alpha. 
 
 ## Commercial Support
-We can offer commercial support for FlixDb. Please reach out 
-to the author at sebastian.harko@protonmail.com.
+FlixDb is sponsored by consulting services. The author(s) provide services centered around 
+event driven systems. Send a direct email to flixdb@protonmail.com.
  
 ## Contributing
 
