@@ -1,7 +1,5 @@
 package com.flixdb.cdc
 
-import com.zaxxer.hikari.HikariDataSource
-
 import scala.concurrent.duration._
 
 sealed trait Mode

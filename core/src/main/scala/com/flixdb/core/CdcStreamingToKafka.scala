@@ -1,24 +1,18 @@
 package com.flixdb.core
 
-import akka.actor.{
-  Actor,
-  ActorLogging,
-  ActorRef,
-  ExtendedActorSystem,
-  Extension,
-  ExtensionId,
-  ExtensionIdProvider,
-  Props
-}
+import akka.actor.{Actor, ActorLogging, ActorRef, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, Props}
 import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings}
 import akka.kafka.scaladsl.Producer
-import com.flixdb.cdc.{ChangeDataCapture, PgCdcSourceSettings, RowInserted}
-import com.flixdb.core.CdcActor.Start
+import com.flixdb.cdc._
+import com.flixdb.core.CdcActor.{ObservedChange, Start}
+import com.flixdb.core.protobuf.CdcActor.End
+import com.zaxxer.hikari.HikariDataSource
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.json4s._
 
 object CdcStreamingToKafka extends ExtensionId[CdcStreamingToKafkaImpl] with ExtensionIdProvider {
 
-  override def lookup = CdcStreamingToKafka
+  override def lookup: CdcStreamingToKafka.type = CdcStreamingToKafka
 
   override def createExtension(system: ExtendedActorSystem) =
     new CdcStreamingToKafkaImpl(system)
@@ -28,8 +22,6 @@ object CdcStreamingToKafka extends ExtensionId[CdcStreamingToKafkaImpl] with Ext
 class CdcStreamingToKafkaImpl(system: ExtendedActorSystem) extends Extension {
 
   // start singleton actor
-
-  case object End extends CborSerializable
 
   private val cdcToKafkaSingletonManager: ActorRef =
     system.actorOf(
@@ -44,45 +36,54 @@ class CdcStreamingToKafkaImpl(system: ExtendedActorSystem) extends Extension {
 }
 
 object CdcActor {
+
   case object Start
+
+  case class ObservedChange(changeType: String, change: Change)
+
 }
 
 class CdcActor extends Actor with ActorLogging {
 
   implicit val system = context.system
 
-  val dataSource = HikariCP(system).getPool("postgres-cdc")
+  val flixDbConfiguration = FlixDbConfiguration(system)
+  val producerSettings = KafkaSettings(system).getProducerSettings
 
-  val topic = "cdc" // TODO: move to configuration
+  val dataSource: HikariDataSource = HikariCP(system).getPool("postgres-cdc")
 
-  val producerSettings = KafkaProducerSettings(system).getSettings
-
-  override def preStart(): Unit =
-    self ! Start
-
-  import spray.json.DefaultJsonProtocol._
-  import spray.json._
-
+  val topic = flixDbConfiguration.cdcKafkaStreamName
   val sink = Producer.plainSink(producerSettings)
-
   val stream = ChangeDataCapture
-    .source(
+    .restartSource(
       dataSource,
-      PgCdcSourceSettings().withSlotName("ds") // default settings
+      PgCdcSourceSettings()
+        .withMode(Modes.Get) // TODO: change to Modes.Peek (at least once delivery) and add an AckSink
+        .withSlotName("cdc")
+        .withCreateSlotOnStart(true)
     )
     .mapConcat(_.changes)
     .collect {
-      case RowInserted(schemaName, tableName, commitLogSeqNum, transactionId, data: Map[String, String], schema) =>
-        val stream = data.get("stream")
-        val subStreamId = data.get("substream_id")
-        log.info("change data capture {} {} ", stream, subStreamId)
-        val value = data.toJson.compactPrint
+      case change: Change =>
+        import org.json4s.jackson.Serialization._
+        implicit val formats = DefaultFormats
+        val changeType = change match {
+          case ri: RowInserted => "RowInserted"
+          case ru: RowUpdated  => "RowUpdated"
+          case rd: RowDeleted  => "RowDeleted"
+        }
+        val value = writePretty(ObservedChange(changeType, change))
+        log.info("Captured change \n{}\n", value)
         new ProducerRecord[String, String](topic, value)
     }
     .to(sink)
 
+  override def preStart(): Unit =
+    self ! Start
+
   override def receive: Receive = {
     case Start =>
+      log.info("Started to stream changes from PostgreSQL to Kafka")
       stream.run()
   }
 
