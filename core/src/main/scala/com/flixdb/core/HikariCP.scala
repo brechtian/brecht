@@ -28,6 +28,7 @@ class HikariCPImpl(system: ExtendedActorSystem) extends Extension {
     val poolNameJmx: String = poolName
 
     val config = new HikariConfig
+    config.setDriverClassName(classOf[org.postgresql.Driver].getName)
     config.setJdbcUrl(jdbcUrl)
     config.setUsername(user)
     config.setPassword(pass)
@@ -35,12 +36,12 @@ class HikariCPImpl(system: ExtendedActorSystem) extends Extension {
     config.setMinimumIdle(minimumIdle)
     config.setRegisterMbeans(true)
     config.setPoolName(poolNameJmx)
-    config.setConnectionTimeout(250) // the very minimum
+    config.setConnectionTimeout(450) // 250 is the minimum
     config.setValidationTimeout(
       // This property controls the maximum amount of time that a connection will be
       // tested for aliveness. This value must be less than the connectionTimeout.
       // Lowest acceptable validation timeout is 250 ms. Default: 5000
-      250
+      300
     )
 
     config

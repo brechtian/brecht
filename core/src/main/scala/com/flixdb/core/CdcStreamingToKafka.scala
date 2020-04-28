@@ -76,7 +76,9 @@ class CdcActor extends Actor with ActorLogging {
         val value = writePretty(ObservedChange(changeType, change))
         log.info("Captured change \n{}\n", value)
         new ProducerRecord[String, String](topic, value)
-    }.viaMat(KillSwitches.single)(Keep.right).to(sink)
+      }
+    .viaMat(KillSwitches.single)(Keep.right)
+    .to(sink)
 
   var streamKillSwitch: UniqueKillSwitch = null
 
@@ -95,6 +97,7 @@ class CdcActor extends Actor with ActorLogging {
       log.info("Started to stream changes from PostgreSQL to Kafka")
       streamKillSwitch = stream.run()
     case End =>
+      log.info("Received termination message")
       stop()
   }
 

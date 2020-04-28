@@ -10,6 +10,8 @@ ThisBuild / publishTo := Some("io.cloudrepo" at "https://flixdb.mycloudrepo.io/r
 
 ThisBuild / credentials += Credentials(Path.userHome / ".sbt" / ".credentials")
 
+ThisBuild / Test / fork := true // specifies that all tests will be executed in a single external JVM
+
 lazy val scala213 = "2.13.1"
 lazy val scala212 = "2.12.10"
 lazy val supportedScalaVersions = List(scala213, scala212)

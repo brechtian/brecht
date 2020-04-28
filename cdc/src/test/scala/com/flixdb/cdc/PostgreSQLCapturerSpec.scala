@@ -9,6 +9,7 @@ import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatest.{BeforeAndAfterAll, matchers}
 import org.testcontainers.containers.GenericContainer
+import org.testcontainers.containers.wait.Wait
 
 abstract class PostgreSQLCapturerSpec
     extends TestKit(ActorSystem())
@@ -444,16 +445,33 @@ abstract class PostgreSQLCapturerSpec
 
 }
 
-class PostgreSQL104 extends PostgreSQLCapturerSpec {
+abstract class PostgreSQLImageName extends PostgreSQLCapturerSpec {
+  def imageName: String
   override val container: GenericContainer[_] = {
     val container =
-    new GenericContainer(
-      "sebastianharko/postgres104:latest"
-    )
+      new GenericContainer(
+        imageName
+      )
+    container.waitingFor(Wait.forLogMessage(".*ready to accept connections.*\\n", 1))
     container.addExposedPort(5432)
     container.start()
-    log.info("Waiting a bit for PostgreSQL to be ready")
-    Thread.sleep(2500)
     container
   }
 }
+
+class PostgreSQL104 extends PostgreSQLImageName {
+  override def imageName = "sebastianharko/postgres104:latest"
+}
+
+class PostgreSQL96 extends PostgreSQLImageName {
+  override def imageName = "sebastianharko/postgres96:latest"
+}
+
+class PostgreSQL95 extends PostgreSQLImageName {
+  override def imageName = "sebastianharko/postgres95:latest"
+}
+
+class PostgreSQL94 extends PostgreSQLImageName {
+  override def imageName = "sebastianharko/postgres94:latest"
+}
+
