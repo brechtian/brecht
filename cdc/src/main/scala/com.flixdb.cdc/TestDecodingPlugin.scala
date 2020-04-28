@@ -233,8 +233,10 @@ private[cdc] object TestDecodingPlugin {
     ChangeSet(transactionId, slotChanges.last.location, instant, result.toList)
   }
 
-  def transformSlotChanges(slotChanges: List[SlotChange], colsToIgnorePerTable: Map[String, List[String]]):
-  List[ChangeSet] =
+  def transformSlotChanges(
+      slotChanges: List[SlotChange],
+      colsToIgnorePerTable: Map[String, List[String]]
+  ): List[ChangeSet] =
     slotChanges
       .groupBy(_.transactionId)
       .map {

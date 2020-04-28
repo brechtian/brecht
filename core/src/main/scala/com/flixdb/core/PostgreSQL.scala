@@ -108,10 +108,10 @@ object PostgreSQLExtensionImpl {
   sealed trait Request
 
   final case class GetEventsRequest(
-                                     namespace: String,
-                                     stream: String,
-                                     subStreamId: String,
-                                     resultPromise: Promise[GetEventsResult]
+      namespace: String,
+      stream: String,
+      subStreamId: String,
+      resultPromise: Promise[GetEventsResult]
   ) extends Request
 
   final case class GetEventsResult(eventEnvelopes: List[EventEnvelope])
@@ -173,7 +173,11 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
       }
     }(blockingExecContext)
 
-  private[core] def selectEvents(tablePrefix: String, stream: String, subStreamId: String): Future[List[EventEnvelope]] =
+  private[core] def selectEvents(
+      tablePrefix: String,
+      stream: String,
+      subStreamId: String
+  ): Future[List[EventEnvelope]] =
     Future {
       var conn: Connection = null
       var statement: PreparedStatement = null
@@ -181,7 +185,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
       try {
         conn = ds.getConnection
         statement = conn.prepareStatement(selectEventsForEntityIdStatement(tablePrefix))
-        statement.setQueryTimeout(1) // TODO: move to configuration
+        statement.setQueryTimeout(1)
         statement.setString(1, subStreamId)
         statement.setString(2, stream)
         resultSet = statement.executeQuery()
@@ -190,7 +194,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
       } catch {
         case NonFatal(e: Throwable) =>
           val ex = convertException(e)
-          logger.error(ex, "Failed to get events for entity with id {}", subStreamId)
+          logger.error(ex, "Failed to get events for sub stream with id {}", subStreamId)
           throw ex
       } finally {
         attemptCloseResultSet(resultSet)
@@ -236,7 +240,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
       ees: List[EventEnvelope]
   ): PreparedStatement = {
     val statement = conn.prepareStatement(getInsertEventStatement(tablePrefix))
-    statement.setQueryTimeout(1) // TODO: move to configuration
+    statement.setQueryTimeout(1)
     ees.foreach { envelope: EventEnvelope =>
       statement.setString(1, envelope.eventId)
       statement.setString(2, envelope.subStreamId)
@@ -457,7 +461,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
 }
 
 object PostgreSQL extends ExtensionId[PostgreSQLExtensionImpl] with ExtensionIdProvider {
-  override def lookup = PostgreSQL
+  override def lookup: PostgreSQL.type = PostgreSQL
   override def createExtension(system: ExtendedActorSystem): PostgreSQLExtensionImpl =
     new PostgreSQLExtensionImpl(system)
 }

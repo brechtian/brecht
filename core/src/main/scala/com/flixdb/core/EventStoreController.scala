@@ -8,7 +8,7 @@ import scala.concurrent.Future
 
 object EventStoreController extends ExtensionId[EventStoreControllerImpl] with ExtensionIdProvider {
 
-  override def lookup = EventStoreController
+  override def lookup: EventStoreController.type = EventStoreController
 
   override def createExtension(system: ExtendedActorSystem) = new EventStoreControllerImpl(system)
 
@@ -20,7 +20,7 @@ class EventStoreControllerImpl(system: ExtendedActorSystem) extends Extension {
   private val cdc = CdcStreamingToKafka(system)
   private val entitySharding = SubStreamSharding(system)
 
-  private val entities = entitySharding.entities
+  private val entities = entitySharding.subStreams
 
   def getEvents(namespace: String, stream: String, subStreamId: String): Future[PbGetEventsResult] = {
     import scala.concurrent.duration._

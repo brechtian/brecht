@@ -6,7 +6,7 @@ import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 
 object HikariCP extends ExtensionId[HikariCPImpl] with ExtensionIdProvider {
 
-  override def lookup = HikariCP
+  override def lookup: HikariCP.type = HikariCP
 
   override def createExtension(system: ExtendedActorSystem) = new HikariCPImpl(system)
 

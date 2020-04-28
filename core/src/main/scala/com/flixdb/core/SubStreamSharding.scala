@@ -7,7 +7,7 @@ import com.flixdb.core.protobuf.PublishMsgs.PbPublishEventsRequest
 
 object SubStreamSharding extends ExtensionId[SubStreamShardingImpl] with ExtensionIdProvider {
 
-  override def lookup = SubStreamSharding
+  override def lookup: SubStreamSharding.type = SubStreamSharding
 
   override def createExtension(system: ExtendedActorSystem) =
     new SubStreamShardingImpl(system)
@@ -16,15 +16,15 @@ object SubStreamSharding extends ExtensionId[SubStreamShardingImpl] with Extensi
 
 class SubStreamShardingImpl(system: ExtendedActorSystem) extends Extension {
 
-  private def buildId(namespace: String, stream: String, entityId: String) = {
+  private def buildId(namespace: String, stream: String, entityId: String): String = {
     s"$namespace-$stream-$entityId"
   }
 
-  private def getId(msg: PbPublishEventsRequest) = {
+  private def getId(msg: PbPublishEventsRequest): String = {
     buildId(msg.namespace, msg.stream, msg.subStreamId)
   }
 
-  private def getId(msg: PbGetEventsRequest) = {
+  private def getId(msg: PbGetEventsRequest): String = {
     buildId(msg.namespace, msg.stream, msg.subStreamId)
   }
 
@@ -44,8 +44,8 @@ class SubStreamShardingImpl(system: ExtendedActorSystem) extends Extension {
       (getId(msg).hashCode % numberOfShards).toString
   }
 
-  val entities: ActorRef = ClusterSharding(system).start(
-    typeName = "Entity",
+  val subStreams: ActorRef = ClusterSharding(system).start(
+    typeName = "substreams",
     entityProps = Props[SubStreamActor],
     settings = ClusterShardingSettings(system),
     extractEntityId = extractEntityId,

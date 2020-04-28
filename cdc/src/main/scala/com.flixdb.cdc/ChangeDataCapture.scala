@@ -4,8 +4,9 @@ import akka.NotUsed
 import akka.actor.{ActorSystem, Cancellable}
 import akka.dispatch.MessageDispatcher
 import akka.stream.ActorAttributes
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.scaladsl.{Flow, RestartSource, Sink, Source}
 import javax.sql.DataSource
+import scala.concurrent.duration._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -75,6 +76,20 @@ object ChangeDataCapture {
       .flatMapConcat(pg => tickOnIntervalSource(pg, settings))
       .via(getAndParseChangesFlow(dataSource, settings))
       .mapConcat(identity)
+  }
+
+  def restartSource(dataSource: DataSource, settings: PgCdcSourceSettings)(
+      implicit system: ActorSystem
+  ): Source[ChangeSet, NotUsed] = {
+
+    val result: Source[ChangeSet, NotUsed] = RestartSource.withBackoff(
+      minBackoff = 3.seconds,
+      maxBackoff = 30.seconds,
+      randomFactor = 0.2, // adds 20% "noise" to vary the intervals slightly
+      maxRestarts = -1 // a negative number will not cap the amount of restarts
+    ) { () => source(dataSource, settings) }
+
+    result
   }
 
   def ackSink(dataSource: DataSource, settings: PgCdcAckSinkSettings): Sink[AckLogSeqNum, NotUsed] =

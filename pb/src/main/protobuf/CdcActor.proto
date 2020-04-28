@@ -1,0 +1,5 @@
+syntax = "proto3";
+package com.flixdb.core.protobuf.CdcActor;
+
+message End {
+}

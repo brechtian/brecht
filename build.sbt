@@ -27,8 +27,8 @@ lazy val core = {
       libraryDependencies := Seq(
         logback,
         "io.spray" %% "spray-json" % "1.3.5",
-        "com.typesafe.akka" %% "akka-serialization-jackson" % "2.6.4",
         "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
+        "org.json4s" %% "json4s-jackson" % "3.6.7",
         "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
         akkaStream,
         "com.typesafe.akka" %% "akka-stream-kafka" % "2.0.2",
@@ -41,6 +41,8 @@ lazy val core = {
         hikariCP,
         "org.scalactic" %% "scalactic" % "3.1.1",
         scalaTest,
+        "org.testcontainers" % "kafka" % "1.12.4" % Test,
+        akkaStreamTestKit,
         akkaTestKit
       )
     }
