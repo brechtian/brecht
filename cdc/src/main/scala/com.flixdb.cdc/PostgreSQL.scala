@@ -172,6 +172,7 @@ private[cdc] case class PostgreSQL(ds: DataSource) {
         result += SlotChange(transactionId, location, data)
       }
       pullChangesStatement.close()
+      log.debug("Captured {} changes", result.size.toString)
       result.toList
     } catch {
       case NonFatal(e) =>

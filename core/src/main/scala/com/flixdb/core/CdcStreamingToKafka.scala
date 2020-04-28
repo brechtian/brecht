@@ -95,6 +95,7 @@ class CdcActor extends Actor with ActorLogging {
       log.info("Started to stream changes from PostgreSQL to Kafka")
       streamKillSwitch = stream.run()
     case End =>
+      log.info("Received termination message")
       stop()
   }
 

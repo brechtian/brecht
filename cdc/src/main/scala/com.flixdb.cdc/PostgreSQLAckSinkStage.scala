@@ -14,7 +14,7 @@ private[cdc] final case class PostgreSQLAckSinkStage(
   private val in: Inlet[AckLogSeqNum] = Inlet[AckLogSeqNum]("postgresqlcdc.in")
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new PostgreSQLSinkStageLogic(dataSource, settings, shape)
+    PostgreSQLSinkStageLogic(dataSource, settings, shape)
 
   override def shape: SinkShape[AckLogSeqNum] = SinkShape(in)
 }

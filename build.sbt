@@ -10,10 +10,11 @@ ThisBuild / publishTo := Some("io.cloudrepo" at "https://flixdb.mycloudrepo.io/r
 
 ThisBuild / credentials += Credentials(Path.userHome / ".sbt" / ".credentials")
 
+ThisBuild / Test / fork := true // specifies that all tests will be executed in a single external JVM
+
 lazy val scala213 = "2.13.1"
 lazy val scala212 = "2.12.10"
 lazy val supportedScalaVersions = List(scala213, scala212)
-
 
 val akkaVersion = "2.6.4"
 val akkaHttpVersion = "10.1.11"
@@ -85,12 +86,13 @@ lazy val cdc = {
         "org.slf4j" % "slf4j-api" % "1.7.30",
         "com.lihaoyi" %% "fastparse" % "2.2.2",
         akkaStream,
-        postgreSQLDriver % Provided,
+        postgreSQLDriver,
         hikariCP % Test,
         scalaTest,
         akkaTestKit,
         akkaStreamTestKit,
-        "jakarta.xml.bind" % "jakarta.xml.bind-api" % "2.3.2" % Test
+        "jakarta.xml.bind" % "jakarta.xml.bind-api" % "2.3.2" % Test,
+        "org.testcontainers" % "testcontainers" % "1.14.1" % Test
       )
     )
 }
