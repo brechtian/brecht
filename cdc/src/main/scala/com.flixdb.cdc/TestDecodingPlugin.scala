@@ -200,7 +200,7 @@ private[cdc] object TestDecodingPlugin {
         instant = t.toInstant
         commitLogSeqNum = s.location
       case (s, f: Parsed.Failure) =>
-        log.error("Failure {} when parsing {}", f.toString(), s.data)
+        log.error(s"Failure ${f.toString()} when parsing ${s.data}")
     }
 
     // we drop the first item and the last item since the first one is just the "BEGIN _" and the last one is the "COMMIT _ (at _)"
@@ -213,20 +213,20 @@ private[cdc] object TestDecodingPlugin {
             f => getColsToIgnoreForTable(change.tableName, colsToIgnorePerTable).contains(f)
           result += (change match {
             case insert: RowInserted =>
-              insert.copy(data = insert.data.view.filterKeys(!hidden(_)).toMap)
+              insert.copy(data = insert.data.filterKeys(!hidden(_)).toMap)
             case delete: RowDeleted =>
-              delete.copy(data = delete.data.view.filterKeys(!hidden(_)).toMap)
+              delete.copy(data = delete.data.filterKeys(!hidden(_)).toMap)
             case update: RowUpdated =>
               update
                 .copy(
-                  dataNew = update.dataNew.view.filterKeys(!hidden(_)).toMap,
-                  dataOld = update.dataOld.view.filterKeys(!hidden(_)).toMap
+                  dataNew = update.dataNew.filterKeys(!hidden(_)).toMap,
+                  dataOld = update.dataOld.filterKeys(!hidden(_)).toMap
                 )
           })
         }
 
       case (s, f: Parsed.Failure) =>
-        log.error("Failure {} when parsing {}", f.toString(), s.data)
+        log.error(s"Failure ${f.toString()} when parsing ${s.data}")
 
     }
 

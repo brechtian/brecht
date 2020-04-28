@@ -33,8 +33,12 @@ transaction id. A [Change]() can be one of the following:
 ## Artifacts
 
 The PostgreSQL JDBC driver is included in the main JAR.
+```
+resolvers +=
+  "io.cloudrepo" at "https://flixdb.mycloudrepo.io/public/repositories/cdc"
 
-TODO: publish artifact.
+libraryDependencies += "com.flixdb" %% "cdc" % "0.1"
+```
 
 ### Reported Issues
 Feel free to use [Github]() not only to report issues but also to provide general feedback. You are also very welcome
