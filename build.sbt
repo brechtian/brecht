@@ -16,7 +16,6 @@ lazy val scala213 = "2.13.1"
 lazy val scala212 = "2.12.10"
 lazy val supportedScalaVersions = List(scala213, scala212)
 
-
 val akkaVersion = "2.6.4"
 val akkaHttpVersion = "10.1.11"
 

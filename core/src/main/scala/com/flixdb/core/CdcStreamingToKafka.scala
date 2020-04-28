@@ -76,9 +76,7 @@ class CdcActor extends Actor with ActorLogging {
         val value = writePretty(ObservedChange(changeType, change))
         log.info("Captured change \n{}\n", value)
         new ProducerRecord[String, String](topic, value)
-      }
-    .viaMat(KillSwitches.single)(Keep.right)
-    .to(sink)
+    }.viaMat(KillSwitches.single)(Keep.right).to(sink)
 
   var streamKillSwitch: UniqueKillSwitch = null
 

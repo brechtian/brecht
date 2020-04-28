@@ -90,14 +90,12 @@ class TestCdcStreamingToKafka extends AnyFunSuiteLike with BeforeAndAfterAll wit
     timestamp = 42L
   )
 
-
   test("We can start the CdcStreamingToKafka extension") {
     CdcStreamingToKafka(system)
   }
 
   val postgreSQL = PostgreSQL(system)
   test("We can write some events") {
-    Thread.sleep(5000)
     postgreSQL.createTablesIfNotExists("default").futureValue shouldBe Done
     postgreSQL.appendEvents("default", List(event1, event2)).futureValue shouldBe Done
     postgreSQL.appendEvents("default", List(event3)).futureValue shouldBe Done
@@ -109,12 +107,12 @@ class TestCdcStreamingToKafka extends AnyFunSuiteLike with BeforeAndAfterAll wit
       .plainSource(
         kafkaSettings.getBaseConsumerSettings.withGroupId("scalatest")
           .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest"),
+        
         Subscriptions.topics(flixDbConfiguration.cdcKafkaStreamName)
       )
       .map(_.value())
       .map {
         case json: String => {
-          println(json)
           import org.json4s.jackson._
           implicit val formats = DefaultFormats
           val j: JValue = parseJson(json)
@@ -124,15 +122,15 @@ class TestCdcStreamingToKafka extends AnyFunSuiteLike with BeforeAndAfterAll wit
       .runWith(TestSink.probe[JValue])
       .request(3)
       // TODO: add additional checks
-      .expectNextChainingPF(f = {
+      .expectNextChainingPF {
         case j: JValue if (j \ "changeType") == JString("RowInserted") =>
-      })
-      .expectNextChainingPF(f = {
+      }
+      .expectNextChainingPF {
         case j: JValue if (j \ "changeType") == JString("RowInserted") =>
-      })
-      .expectNextChainingPF(f = {
+      }
+      .expectNextChainingPF {
         case j: JValue if (j \ "changeType") == JString("RowInserted") =>
-      })
+      }
 
   }
 
