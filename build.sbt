@@ -85,12 +85,13 @@ lazy val cdc = {
         "org.slf4j" % "slf4j-api" % "1.7.30",
         "com.lihaoyi" %% "fastparse" % "2.2.2",
         akkaStream,
-        postgreSQLDriver % Provided,
+        postgreSQLDriver,
         hikariCP % Test,
         scalaTest,
         akkaTestKit,
         akkaStreamTestKit,
-        "jakarta.xml.bind" % "jakarta.xml.bind-api" % "2.3.2" % Test
+        "jakarta.xml.bind" % "jakarta.xml.bind-api" % "2.3.2" % Test,
+        "org.testcontainers" % "testcontainers" % "1.14.1" % Test
       )
     )
 }

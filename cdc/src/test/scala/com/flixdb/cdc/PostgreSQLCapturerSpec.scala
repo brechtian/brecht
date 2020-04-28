@@ -8,8 +8,9 @@ import akka.testkit.{ImplicitSender, TestKit}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatest.{BeforeAndAfterAll, matchers}
+import org.testcontainers.containers.GenericContainer
 
-class PostgreSQLCapturerSpec
+abstract class PostgreSQLCapturerSpec
     extends TestKit(ActorSystem())
     with AnyWordSpecLike
     with ImplicitSender
@@ -21,14 +22,17 @@ class PostgreSQLCapturerSpec
 
   implicit val actorSystem = system
 
+  val container: GenericContainer[_]
+
   lazy val cfg: HikariConfig = {
     val c = new HikariConfig
-    val url = s"jdbc:postgresql://localhost:5432/postgres"
+    c.setDriverClassName(classOf[org.postgresql.Driver].getName)
+    val url = s"jdbc:postgresql://${container.getContainerIpAddress}:${container.getMappedPort(5432)}/postgres"
     log.info("JdbcUrl is {}", url)
     c.setJdbcUrl(url)
     c.setUsername("pguser")
     c.setPassword("pguser")
-    c.setMaximumPoolSize(10)
+    c.setMaximumPoolSize(2)
     c.setMinimumIdle(0)
     c.setPoolName("pg")
     c
@@ -36,13 +40,11 @@ class PostgreSQLCapturerSpec
 
   lazy val ds: HikariDataSource = new HikariDataSource(cfg)
 
-  lazy val conn = ds.getConnection()
+  lazy val conn = ds.getConnection() // for FakeDb
 
   override def beforeAll(): Unit = {
     log.info("Validating HikariCP pool")
     ds.validate()
-
-    val conn = ds.getConnection()
 
     log.info("Setting up logical decoding slot and creating customers table")
     setTimeZoneUtc(conn)
@@ -54,16 +56,12 @@ class PostgreSQLCapturerSpec
     createImagesTable(conn)
     createWeatherTable(conn)
 
-    log.info("Closing connection")
-    conn.close()
-
   }
 
   override def afterAll: Unit = {
-    log.info("Dropping logical decoding slot and dropping tables")
     TestKit.shutdownActorSystem(system)
 
-    val conn = ds.getConnection()
+    log.info("Dropping logical decoding slot and dropping tables")
     /*
     The following are useful for local testing but not necessary when running this test on proper CI (like Travis) since the CI
     creates fresh docker containers and destroys them after the test is complete anyway.
@@ -77,8 +75,10 @@ class PostgreSQLCapturerSpec
     dropTableWeather(conn)
 
     conn.close()
-
     ds.close()
+
+    log.info("Stopping container")
+    container.stop()
 
   }
 
@@ -442,4 +442,18 @@ class PostgreSQLCapturerSpec
 
   }
 
+}
+
+class PostgreSQL104 extends PostgreSQLCapturerSpec {
+  override val container: GenericContainer[_] = {
+    val container =
+    new GenericContainer(
+      "sebastianharko/postgres104:latest"
+    )
+    container.addExposedPort(5432)
+    container.start()
+    log.info("Waiting a bit for PostgreSQL to be ready")
+    Thread.sleep(2500)
+    container
+  }
 }
