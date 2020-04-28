@@ -7,6 +7,8 @@ import akka.actor.ActorSystem
 import akka.kafka.Subscriptions
 import akka.kafka.scaladsl.Consumer
 import akka.stream.testkit.scaladsl.TestSink
+import org.json4s.JsonAST.JString
+import org.json4s.{DefaultFormats, JValue}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funsuite.AnyFunSuiteLike
@@ -35,8 +37,7 @@ class TestCdcStreamingToKafka extends AnyFunSuiteLike with BeforeAndAfterAll wit
        |postgres.port = ${postgreSQLContainer.getMappedPort(5432)}
        |postgres-cdc.host = "${postgreSQLContainer.getContainerIpAddress}"
        |postgres-cdc.port = ${postgreSQLContainer.getMappedPort(5432)}
-       |kafka.producer.bootstrap.servers = "${kafkaContainer.getBootstrapServers}"""".stripMargin)
-
+       |kafka.bootstrap.servers = "${kafkaContainer.getBootstrapServers}"""".stripMargin)
 
   val regularConfig = ConfigFactory.load
 
@@ -93,22 +94,42 @@ class TestCdcStreamingToKafka extends AnyFunSuiteLike with BeforeAndAfterAll wit
     postgreSQL.appendEvents("default", List(event3)).futureValue shouldBe Done
   }
 
-  test("The events we wrote appear in the change data capture stream") {
+  test("The events we wrote appear in the change data capture topic in Kafka") {
 
     Consumer
-      .plainSource(kafkaSettings.getConsumerSettings, Subscriptions.topics(flixDbConfiguration.cdcKafkaStreamName))
+      .plainSource(
+        kafkaSettings.getBaseConsumerSettings.withGroupId("scalatest"),
+        Subscriptions.topics(flixDbConfiguration.cdcKafkaStreamName)
+      )
       .map(_.value())
-      .runWith(TestSink.probe[String])
+      .map {
+        case json: String => {
+          import org.json4s.jackson._
+          implicit val formats = DefaultFormats
+          val j: JValue = parseJson(json)
+          j
+        }
+      }
+      .runWith(TestSink.probe[JValue])
       .request(3)
-
+      // TODO: add additional checks
+      .expectNextChainingPF {
+        case j: JValue if (j \ "changeType") == JString("RowInserted") =>
+      }
+      .expectNextChainingPF {
+        case j: JValue if (j \ "changeType") == JString("RowInserted") =>
+      }
+      .expectNextChainingPF {
+        case j: JValue if (j \ "changeType") == JString("RowInserted") =>
+      }
 
   }
 
   override def afterAll(): Unit = {
     super.afterAll()
+    system.terminate()
     kafkaContainer.stop()
     postgreSQLContainer.stop()
-    system.terminate()
   }
 
 }

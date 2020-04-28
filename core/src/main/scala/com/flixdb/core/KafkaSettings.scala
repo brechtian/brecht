@@ -29,7 +29,7 @@ class KafkaSettingsImpl(system: ExtendedActorSystem) extends Extension {
       .withProperties(toMap(system.settings.config.getConfig("kafka")))
   }
 
-  def getConsumerSettings: ConsumerSettings[String, String] = {
+  def getBaseConsumerSettings: ConsumerSettings[String, String] = {
     ConsumerSettings(system, new StringDeserializer, new StringDeserializer )
       .withProperties(toMap(system.settings.config.getConfig("kafka")))
   }

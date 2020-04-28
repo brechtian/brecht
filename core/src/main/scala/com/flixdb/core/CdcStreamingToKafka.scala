@@ -3,6 +3,8 @@ package com.flixdb.core
 import akka.actor.{Actor, ActorLogging, ActorRef, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, Props}
 import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings}
 import akka.kafka.scaladsl.Producer
+import akka.stream.{KillSwitches, UniqueKillSwitch}
+import akka.stream.scaladsl.Keep
 import com.flixdb.cdc._
 import com.flixdb.core.CdcActor.{ObservedChange, Start}
 import com.flixdb.core.protobuf.CdcActor.End
@@ -51,7 +53,6 @@ class CdcActor extends Actor with ActorLogging {
   val producerSettings = KafkaSettings(system).getProducerSettings
 
   val dataSource: HikariDataSource = HikariCP(system).getPool("postgres-cdc")
-
   val topic = flixDbConfiguration.cdcKafkaStreamName
   val sink = Producer.plainSink(producerSettings)
   val stream = ChangeDataCapture
@@ -75,16 +76,26 @@ class CdcActor extends Actor with ActorLogging {
         val value = writePretty(ObservedChange(changeType, change))
         log.info("Captured change \n{}\n", value)
         new ProducerRecord[String, String](topic, value)
-    }
-    .to(sink)
+    }.viaMat(KillSwitches.single)(Keep.right).to(sink)
+
+  var streamKillSwitch: UniqueKillSwitch = null
 
   override def preStart(): Unit =
     self ! Start
 
+  def stop(): Unit = {
+    log.info("Shutting down stream")
+    Option(streamKillSwitch).foreach(_.shutdown())
+    log.info("Shutting down HikariCP data source")
+    dataSource.close()
+  }
+
   override def receive: Receive = {
     case Start =>
       log.info("Started to stream changes from PostgreSQL to Kafka")
-      stream.run()
+      streamKillSwitch = stream.run()
+    case End =>
+      stop()
   }
 
 }

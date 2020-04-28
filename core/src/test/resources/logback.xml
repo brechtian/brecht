@@ -8,11 +8,11 @@
     </appender>
 
     <!-- this config is for logback framework -->
-    <logger name="com.zaxxer.hikari" level="DEBUG" additivity="false">
+    <logger name="com.zaxxer.hikari" level="ERROR" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <root level="DEBUG">
+    <root level="ERROR">
         <appender-ref ref="STDOUT"/>
     </root>
 
