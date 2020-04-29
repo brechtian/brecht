@@ -12,13 +12,19 @@ import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.json4s.JsonAST.JString
 import org.json4s.{DefaultFormats, JValue}
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers
 import org.testcontainers.containers.wait.Wait
 import org.testcontainers.containers.{GenericContainer, KafkaContainer}
 
-class TestCdcStreamingToKafka extends AnyFunSuiteLike with BeforeAndAfterAll with ScalaFutures with Matchers {
+class TestCdcStreamingToKafka
+    extends AnyFunSuiteLike
+    with BeforeAndAfterAll
+    with ScalaFutures
+    with Matchers
+    with Eventually
+    with IntegrationPatience {
 
   import com.typesafe.config.ConfigFactory
 
@@ -36,16 +42,18 @@ class TestCdcStreamingToKafka extends AnyFunSuiteLike with BeforeAndAfterAll wit
     container
   }
 
-  val testConfig = ConfigFactory.parseString(
-    s"""|container.host = "${postgreSQLContainer.getContainerIpAddress}"
+  val testConfig = ConfigFactory
+    .parseString(
+      s"""|container.host = "${postgreSQLContainer.getContainerIpAddress}"
         |container.port = ${postgreSQLContainer.getMappedPort(5432)}
         |postgres.host = $${container.host}
         |postgres.port = $${container.port}
         |postgres-cdc.host = $${container.host}
         |postgres-cdc.port = $${container.port}
         |kafka.bootstrap.servers = "${kafkaContainer.getBootstrapServers}"""".stripMargin,
-    ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF)
-  ).resolve()
+      ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF)
+    )
+    .resolve()
 
   val regularConfig = ConfigFactory.load
 
@@ -91,10 +99,14 @@ class TestCdcStreamingToKafka extends AnyFunSuiteLike with BeforeAndAfterAll wit
   )
 
   test("We can start the CdcStreamingToKafka extension") {
-    CdcStreamingToKafka(system)
+    val cdcStreamingToKafka = CdcStreamingToKafka(system)
+    eventually {
+      cdcStreamingToKafka.isStreamRunning.futureValue shouldBe true
+    }
   }
 
   val postgreSQL = PostgreSQL(system)
+
   test("We can write some events") {
     postgreSQL.createTablesIfNotExists("default").futureValue shouldBe Done
     postgreSQL.appendEvents("default", List(event1, event2)).futureValue shouldBe Done
@@ -105,9 +117,9 @@ class TestCdcStreamingToKafka extends AnyFunSuiteLike with BeforeAndAfterAll wit
 
     Consumer
       .plainSource(
-        kafkaSettings.getBaseConsumerSettings.withGroupId("scalatest")
+        kafkaSettings.getBaseConsumerSettings
+          .withGroupId("scalatest")
           .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest"),
-        
         Subscriptions.topics(flixDbConfiguration.cdcKafkaStreamName)
       )
       .map(_.value())

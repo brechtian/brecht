@@ -3,3 +3,9 @@ package com.flixdb.core.protobuf.CdcActor;
 
 message End {
 }
+
+message IsStreamRunning { }
+
+message StreamRunning {
+  bool running = 1;
+}
