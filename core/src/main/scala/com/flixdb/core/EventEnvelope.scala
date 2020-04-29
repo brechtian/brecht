@@ -8,7 +8,8 @@ package com.flixdb.core
   * @param data JSON data (actual event payload)
   * @param stream Name of the stream that the event belongs to (e.g., account)
   * @param tags Other streams that the event belongs to
-  * @param timestamp the number of milliseconds since January 1, 1970, 00:00:00 GMT.
+  * @param timestamp the number of milliseconds since January 1, 1970, 00:00:00 GMT
+  * @param snapshot boolean that indicates if this envelope contains a snapshot event
   */
 final case class EventEnvelope(
     eventId: String,
@@ -18,5 +19,6 @@ final case class EventEnvelope(
     data: String,
     stream: String,
     tags: List[String],
-    timestamp: Long
+    timestamp: Long,
+    snapshot: Boolean
 )

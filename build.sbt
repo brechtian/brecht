@@ -101,6 +101,8 @@ lazy val cdc = {
         fastparse,
         akkaStream,
         postgreSQLDriver,
+        akkaSlf4j % Test,
+        logback % Test,
         hikariCP % Test,
         scalaTest % Test,
         akkaTestKit % Test,

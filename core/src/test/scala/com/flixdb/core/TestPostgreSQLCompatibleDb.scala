@@ -86,7 +86,8 @@ abstract class TestPostgreSQLCompatibleDb
     data = """{"owner": "John Smith"}""",
     stream = "accounts",
     tags = List("megacorp"),
-    timestamp = 42L
+    timestamp = 42L,
+    snapshot = false
   )
 
   val event2: EventEnvelope = EventEnvelope(
@@ -97,7 +98,8 @@ abstract class TestPostgreSQLCompatibleDb
     data = """{"owner": "Rachel Smith"}""",
     stream = "accounts",
     tags = List("megacorp"),
-    timestamp = 42L
+    timestamp = 42L,
+    snapshot = false
   )
 
   val event3: EventEnvelope = EventEnvelope(
@@ -108,7 +110,8 @@ abstract class TestPostgreSQLCompatibleDb
     data = """{"owner": "Daniel Smith"}""",
     stream = "accounts",
     tags = List("megacorp"),
-    timestamp = 42L
+    timestamp = 42L,
+    snapshot = false
   )
 
   test("Appending an event to the events table") {

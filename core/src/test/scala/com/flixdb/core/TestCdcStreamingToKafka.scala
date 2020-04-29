@@ -75,7 +75,8 @@ class TestCdcStreamingToKafka
     data = """{"owner": "Silvia Cruz"}""",
     stream = "accounts",
     tags = List("megacorp"),
-    timestamp = 42L
+    timestamp = 42L,
+    snapshot = false
   )
 
   val event2: EventEnvelope = EventEnvelope(
@@ -86,7 +87,8 @@ class TestCdcStreamingToKafka
     data = """{"owner": "Silvia Cruz"}""",
     stream = "accounts",
     tags = List("megacorp"),
-    timestamp = 43L
+    timestamp = 43L,
+    snapshot = false
   )
 
   val event3: EventEnvelope = EventEnvelope(
@@ -97,7 +99,8 @@ class TestCdcStreamingToKafka
     data = """{"owner": "Silvia Cruz"}""",
     stream = "accounts",
     tags = List("megacorp"),
-    timestamp = 42L
+    timestamp = 42L,
+    snapshot = false
   )
 
   test("We can start the CdcStreamingToKafka extension") {

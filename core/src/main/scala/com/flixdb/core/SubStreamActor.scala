@@ -189,7 +189,8 @@ object SubStreamActor {
         data = ee.data,
         stream = stream,
         tags = ee.tags.toList,
-        timestamp = timestamp
+        timestamp = timestamp,
+        snapshot = false
       )
     )
   }.toList

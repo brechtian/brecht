@@ -79,6 +79,7 @@ object PostgreSQLExtensionImpl {
         |  "data" jsonb NOT NULL,
         |  "stream" varchar(255) NOT NULL,
         |  "tags" varchar[],
+        |  "snapshot" boolean NOT NULL DEFAULT FALSE,
         |  PRIMARY KEY ("sequence_num", "substream_id", "stream")
         |);
         |""".stripMargin
@@ -88,12 +89,15 @@ object PostgreSQLExtensionImpl {
         |  "substream_id", "stream" );
         |""".stripMargin
 
-  private def selectEventsForEntityIdStatement(prefix: String): String =
-    s"""SELECT * FROM "${prefix}_events" WHERE "substream_id" = ? AND "stream" = ? ORDER BY sequence_num ASC"""
+  private def selectEventsStatement(prefix: String): String =
+    s"""SELECT * FROM "${prefix}_events" WHERE "substream_id" = ? AND "stream" = ? ORDER BY "sequence_num" ASC"""
+
+  private def getDeleteEventsStatement(prefix: String, stream: String, subStreamId: String, upToSeqNum: Int): String =
+    s"""DELETE FROM "${prefix}_events" WHERE "substream_id" = ? AND "stream" = ? AND sequence_num < ?"""
 
   private def getInsertEventStatement(prefix: String): String =
     s"""
-       |INSERT INTO ${prefix}_events(
+       |INSERT INTO "${prefix}_events"(
        | "event_id", 
        | "substream_id",
        | "event_type",
@@ -101,8 +105,9 @@ object PostgreSQLExtensionImpl {
        | "data",
        | "stream",
        | "tags",
-       | "tstamp"
-       | ) VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+       | "tstamp",
+       | "snapshot"
+       | ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
        |""".stripMargin
 
   sealed trait Request
@@ -173,6 +178,43 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
       }
     }(blockingExecContext)
 
+  private[core] def saveSnapshot(
+      tablePrefix: String,
+      eventEnvelope: EventEnvelope): Future[Done] = {
+    Future {
+      var conn: Connection = null
+      var deleteStatement: PreparedStatement = null
+      var insertStatement: PreparedStatement = null
+      try {
+        conn = ds.getConnection
+        conn.setAutoCommit(false)
+        insertStatement = prepStatementForSingleInsert(conn, tablePrefix, eventEnvelope)
+        deleteStatement = conn.prepareStatement(getDeleteEventsStatement(
+          tablePrefix,
+          stream = eventEnvelope.stream,
+          subStreamId = eventEnvelope.subStreamId,
+          upToSeqNum = eventEnvelope.sequenceNum
+        ))
+        deleteStatement.setString(1, eventEnvelope.subStreamId)
+        deleteStatement.setString(2, eventEnvelope.stream)
+        deleteStatement.setInt(3, eventEnvelope.sequenceNum)
+        deleteStatement.executeUpdate()
+        insertStatement.execute()
+        conn.commit()
+        Done
+      } catch {
+        case NonFatal(e) =>
+          val ex = convertException(e)
+          logger.error(ex, s"Failed to save snapshot into table {}_events", tablePrefix)
+          attemptRollbackConnection(conn)
+          throw ex
+      } finally {
+        attemptCloseStatement(deleteStatement)
+        attemptCloseConnection(conn)
+      }
+    }(blockingExecContext)
+  }
+
   private[core] def selectEvents(
       tablePrefix: String,
       stream: String,
@@ -184,7 +226,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
       var resultSet: ResultSet = null
       try {
         conn = ds.getConnection
-        statement = conn.prepareStatement(selectEventsForEntityIdStatement(tablePrefix))
+        statement = conn.prepareStatement(selectEventsStatement(tablePrefix))
         statement.setQueryTimeout(1)
         statement.setString(1, subStreamId)
         statement.setString(2, stream)
@@ -234,6 +276,25 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
         }(blockingExecContext)
     }
 
+  private def prepStatementForSingleInsert(
+      conn: Connection,
+      tablePrefix: String,
+      envelope: EventEnvelope): PreparedStatement = {
+    val statement = conn.prepareStatement(getInsertEventStatement(tablePrefix))
+    statement.setQueryTimeout(1)
+    statement.setString(1, envelope.eventId)
+    statement.setString(2, envelope.subStreamId)
+    statement.setString(3, envelope.eventType)
+    statement.setInt(4, envelope.sequenceNum)
+    statement.setObject(5, createPGJsonObject(envelope.data))
+    statement.setString(6, envelope.stream)
+    statement.setArray(7, conn.createArrayOf("VARCHAR", envelope.tags.toArray))
+    statement.setLong(8, envelope.timestamp)
+    statement.setBoolean(9, envelope.snapshot)
+    statement
+  }
+
+
   private def prepStatementForBatchInsert(
       conn: Connection,
       tablePrefix: String,
@@ -250,6 +311,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
       statement.setString(6, envelope.stream)
       statement.setArray(7, conn.createArrayOf("VARCHAR", envelope.tags.toArray))
       statement.setLong(8, envelope.timestamp)
+      statement.setBoolean(9, envelope.snapshot)
       statement.addBatch()
     }
     statement
@@ -350,7 +412,8 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
       timestamp = rs.getLong("tstamp"),
       data = rs.getString("data"),
       stream = rs.getString("stream"),
-      tags = rs.getArray("tags").getArray.asInstanceOf[scala.Array[String]].toList
+      tags = rs.getArray("tags").getArray.asInstanceOf[scala.Array[String]].toList,
+      snapshot = rs.getBoolean("snapshot")
     )
 
   @scala.annotation.tailrec
