@@ -8,6 +8,7 @@ import akka.kafka.Subscriptions
 import akka.kafka.scaladsl.Consumer
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
+import com.flixdb.core.postgresql.PostgresSQLDataAccessLayer
 import com.typesafe.config.{ConfigParseOptions, ConfigSyntax}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.json4s.JsonAST.JString
@@ -18,6 +19,7 @@ import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers
 import org.testcontainers.containers.wait.Wait
 import org.testcontainers.containers.{GenericContainer, KafkaContainer}
+
 import scala.concurrent.duration._
 
 class TestCdcStreamingToKafka
@@ -46,13 +48,14 @@ class TestCdcStreamingToKafka
 
   val testConfig = ConfigFactory
     .parseString(
-      s"""|container.host = "${postgreSQLContainer.getContainerIpAddress}"
-        |container.port = ${postgreSQLContainer.getMappedPort(5432)}
-        |postgres.host = $${container.host}
-        |postgres.port = $${container.port}
-        |postgres-cdc.host = $${container.host}
-        |postgres-cdc.port = $${container.port}
-        |kafka.bootstrap.servers = "${kafkaContainer.getBootstrapServers}"""".stripMargin,
+      s"""
+      |container.host = "${postgreSQLContainer.getContainerIpAddress}"
+      |container.port = ${postgreSQLContainer.getMappedPort(5432)}
+      |postgresql-main-pool.host = $${container.host}
+      |postgresql-main-pool.port = $${container.port}
+      |postgresql-cdc-pool.host = $${container.host}
+      |postgresql-cdc-pool.port = $${container.port}
+      |kafka.bootstrap.servers = "${kafkaContainer.getBootstrapServers}"""".stripMargin,
       ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF)
     )
     .resolve()
@@ -110,7 +113,7 @@ class TestCdcStreamingToKafka
     }
   }
 
-  val postgreSQL = PostgreSQL(system)
+  val postgreSQL = new PostgresSQLDataAccessLayer()(system)
 
   test("We can write some events") {
     postgreSQL.createTablesIfNotExists("default").futureValue shouldBe Done

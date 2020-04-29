@@ -2,6 +2,7 @@ package com.flixdb.core
 
 import akka.actor.ActorSystem
 import akka.event.Logging
+import com.flixdb.core.postgresql.PostgreSQL
 
 import scala.concurrent.ExecutionContextExecutor
 
