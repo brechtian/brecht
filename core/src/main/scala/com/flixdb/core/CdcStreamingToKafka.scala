@@ -1,16 +1,19 @@
 package com.flixdb.core
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, Props}
-import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings}
+import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
 import akka.kafka.scaladsl.Producer
-import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.Keep
+import akka.stream.{KillSwitches, UniqueKillSwitch}
+import akka.util.Timeout
 import com.flixdb.cdc._
 import com.flixdb.core.CdcActor.{ObservedChange, Start}
-import com.flixdb.core.protobuf.CdcActor.End
+import com.flixdb.core.protobuf.CdcActor.{End, IsStreamRunning, StreamRunning}
 import com.zaxxer.hikari.HikariDataSource
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.json4s._
+
+import scala.concurrent.Future
 
 object CdcStreamingToKafka extends ExtensionId[CdcStreamingToKafkaImpl] with ExtensionIdProvider {
 
@@ -34,6 +37,21 @@ class CdcStreamingToKafkaImpl(system: ExtendedActorSystem) extends Extension {
       ),
       name = "cdc-to-kafka"
     )
+
+  private val proxy = system.actorOf(
+    ClusterSingletonProxy.props(
+      singletonManagerPath = "/user/cdc-to-kafka",
+      settings = ClusterSingletonProxySettings(system)),
+    name = "cdc-to-kafka-proxy")
+
+  val isStreamRunning: Future[Boolean] = {
+    import system.dispatcher
+    import scala.concurrent.duration._
+    import akka.pattern.ask
+    implicit val timeout = Timeout(3.second)
+    (proxy ? IsStreamRunning.defaultInstance).mapTo[StreamRunning]
+      .map(_.running)
+  }
 
 }
 
@@ -76,16 +94,22 @@ class CdcActor extends Actor with ActorLogging {
         val value = writePretty(ObservedChange(changeType, change))
         log.info("Captured change \n{}\n", value)
         new ProducerRecord[String, String](topic, value)
-    }.viaMat(KillSwitches.single)(Keep.right).to(sink)
+    }
+    .viaMat(KillSwitches.single)(Keep.right)
+    .to(sink)
 
   var streamKillSwitch: UniqueKillSwitch = null
+
+  var isRunning: Boolean = false
 
   override def preStart(): Unit =
     self ! Start
 
   def stop(): Unit = {
-    log.info("Shutting down stream")
-    Option(streamKillSwitch).foreach(_.shutdown())
+    Option(streamKillSwitch).foreach {
+      log.info("Shutting down stream")
+      killSwitch => killSwitch.shutdown()
+    }
     log.info("Shutting down HikariCP data source")
     dataSource.close()
   }
@@ -94,9 +118,12 @@ class CdcActor extends Actor with ActorLogging {
     case Start =>
       log.info("Started to stream changes from PostgreSQL to Kafka")
       streamKillSwitch = stream.run()
+      isRunning = true
     case End =>
       log.info("Received termination message")
       stop()
+    case m: IsStreamRunning =>
+      sender() ! StreamRunning(isRunning)
   }
 
 }
