@@ -33,16 +33,7 @@ before_cache:
   - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
   - find $HOME/.sbt        -name "*.lock"               -print -delete
 
-before_install:
-  # using jabba for custom jdk management
-  - curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.1/install.sh | bash && . ~/.jabba/jabba.sh
-  - jabba install adopt@1.8-0
-  - jabba install adopt@1.11-0
-  - jabba install adopt@1.14.0-0
 
-jobs:
-  include:
-    name: "Test FlixDb"
-    script:
-      - sbt "project cdc;+test"
-       - sbt "project core;test"
+script:
+  - sbt "project cdc;+test"
+  - sbt "project core;test"
