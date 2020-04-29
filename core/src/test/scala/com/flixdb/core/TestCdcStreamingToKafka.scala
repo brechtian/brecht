@@ -148,10 +148,10 @@ class TestCdcStreamingToKafka
   }
 
   test("We can terminate the actor system") {
-    system.terminate()
-    val f = system.whenTerminated
+    val f1 = system.terminate()
+    val f2 = system.whenTerminated
     eventually {
-      f.futureValue shouldBe Terminated
+      f2.futureValue shouldBe an[Terminated]
     }
   }
 
