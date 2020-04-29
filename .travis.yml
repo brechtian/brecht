@@ -1,5 +1,21 @@
 language: scala
 
+jdk:
+  - openjdk14
+  - oraclejdk14
+  - openjdk13
+  - oraclejdk13
+  - openjdk12
+  - oraclejdk12
+  - openjdk11
+  - oralejdk11
+  - openjdk10
+  - oraclejdk10
+  - openjdk9
+  - oraclejdk9
+  - openjdk8
+  - oraclejdk8
+
 services:
   - docker
 
@@ -26,22 +42,7 @@ before_install:
 
 jobs:
   include:
-    - stage: "Test-adopt@1.8-0"
-      name: "Test FlixDb on adopt@1.8-0"
-      script:
-        - jabba use "adopt@1.8-0"
-        - sbt "project cdc;+test"
-        - sbt "project core;test"
-    - stage: "Test-adopt@1.11-0"
-      name: "Test FlixDb on adopt@1.11-0"
-      script:
-        - jabba use "adopt@1.8-0"
-        - sbt "project cdc;+test"
-        - sbt "project core;test"
-    - stage: "Test-adopt@1.14-0"
-      name: "Test FlixDb on adopt@1.14-0"
-      script:
-        - jabba use "adopt@1.14.0-0"
-        - sbt "project cdc;+test"
-        - sbt "project core;test"
-
+    name: "Test FlixDb"
+    script:
+      - sbt "project cdc;+test"
+       - sbt "project core;test"
