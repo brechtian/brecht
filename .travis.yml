@@ -1,5 +1,8 @@
 language: scala
 
+services:
+  - docker
+
 # From: https://www.scala-sbt.org/1.0/docs/Travis-CI-with-sbt.html#Caching
 # With these "changes combined Travis CI will tar up the cached directories and uploads them to a cloud storage
 # provider. Overall, the use of caching should shave off a few minutes of build time per job."
