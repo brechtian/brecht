@@ -9,7 +9,6 @@
         </encoder>
     </appender>
 
-    <!-- this config is for logback framework -->
     <logger name="com.zaxxer.hikari" level="INFO" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>

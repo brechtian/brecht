@@ -15,11 +15,10 @@ import org.scalatest.time.{Seconds, Span}
 import org.slf4j.LoggerFactory
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.Wait
-import org.testcontainers.containers.wait.strategy.WaitStrategy
 
 import scala.language.postfixOps
 
-class TestPostgreSQLCompatibleDb
+abstract class TestPostgreSQLCompatibleDb
     extends AnyFunSuiteLike
     with BeforeAndAfterAll
     with ScalaFutures
@@ -34,40 +33,36 @@ class TestPostgreSQLCompatibleDb
       interval = scaled(Span(2, Seconds))
     )
 
-  val postgreSQLContainer = {
-    val container = new GenericContainer("sebastianharko/postgres104:latest")
-    container.waitingFor(Wait.forLogMessage(".*ready to accept connections.*\\n", 1))
-    container.addExposedPort(5432)
-    container.start()
-    container
-  }
+  val postgreSQLContainer: GenericContainer[_]
 
-  val testConfig = ConfigFactory.parseString(
-    s"""|container.host = "${postgreSQLContainer.getContainerIpAddress}"
+  lazy val testConfig = ConfigFactory
+    .parseString(
+      s"""|container.host = "${postgreSQLContainer.getContainerIpAddress}"
         |container.port = ${postgreSQLContainer.getMappedPort(5432)}
         |postgres.host = $${container.host}
         |postgres.port = $${container.port}
         |postgres-starved.host = $${container.host}
         |postgres-starved.port = $${container.port}""".stripMargin,
-    ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF)
-  ).resolve()
+      ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF)
+    )
+    .resolve()
 
+  lazy val regularConfig = ConfigFactory.load
 
-  val regularConfig = ConfigFactory.load
+  lazy val mergedConfig = testConfig.withFallback(regularConfig)
 
-  val mergedConfig = testConfig.withFallback(regularConfig)
+  implicit lazy val system = ActorSystem("flixdb", config = mergedConfig)
 
-  implicit val system = ActorSystem("flixdb", config = mergedConfig)
+  lazy val postgreSQL: PostgreSQLExtensionImpl = PostgreSQL(system)
 
-  val postgreSQL: PostgreSQLExtensionImpl = PostgreSQL(system)
-
-  val postgreSQLStarvedConnectionPool: PostgreSQLExtensionImpl =
+  lazy val postgreSQLStarvedConnectionPool: PostgreSQLExtensionImpl =
     new PostgreSQLExtensionImpl(system) {
       override def poolName = "postgres-starved"
     }
 
   override def afterAll: Unit = {
-    TestKit.shutdownActorSystem(system)
+    import scala.concurrent.duration._
+    TestKit.shutdownActorSystem(system, duration = 30.seconds, verifySystemShutdown = true)
     postgreSQLContainer.stop()
   }
 
@@ -205,9 +200,35 @@ class TestPostgreSQLCompatibleDb
 
   }
 
-  test("We can close connection pools") {
+  test("We can close the connection pools") {
     postgreSQL.closePools().futureValue shouldBe Done
     postgreSQLStarvedConnectionPool.closePools().futureValue shouldBe Done
   }
 
+}
+
+abstract class TestPostgreSQLCompatibleDbDockerImage extends TestPostgreSQLCompatibleDb {
+  def imageName: String
+  override val postgreSQLContainer: GenericContainer[_] = {
+    val container =
+      new GenericContainer(
+        imageName
+      )
+    container.waitingFor(Wait.forLogMessage(".*ready to accept connections.*\\n", 1))
+    container.addExposedPort(5432)
+    container.start()
+    container
+  }
+}
+
+class PostgreSQL104 extends TestPostgreSQLCompatibleDbDockerImage {
+  override def imageName = "sebastianharko/postgres104:latest"
+}
+
+class PostgreSQL96 extends TestPostgreSQLCompatibleDbDockerImage {
+  override def imageName = "sebastianharko/postgres96:latest"
+}
+
+class PostgreSQL95 extends TestPostgreSQLCompatibleDbDockerImage {
+  override def imageName = "sebastianharko/postgres95:latest"
 }

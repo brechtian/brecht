@@ -3,10 +3,11 @@ package com.flixdb.core
 import java.util.UUID.randomUUID
 
 import akka.Done
-import akka.actor.{ActorSystem, Terminated}
+import akka.actor.ActorSystem
 import akka.kafka.Subscriptions
 import akka.kafka.scaladsl.Consumer
 import akka.stream.testkit.scaladsl.TestSink
+import akka.testkit.TestKit
 import com.typesafe.config.{ConfigParseOptions, ConfigSyntax}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.json4s.JsonAST.JString
@@ -17,6 +18,7 @@ import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers
 import org.testcontainers.containers.wait.Wait
 import org.testcontainers.containers.{GenericContainer, KafkaContainer}
+import scala.concurrent.duration._
 
 class TestCdcStreamingToKafka
     extends AnyFunSuiteLike
@@ -147,16 +149,9 @@ class TestCdcStreamingToKafka
 
   }
 
-  test("We can terminate the actor system") {
-    val f1 = system.terminate()
-    val f2 = system.whenTerminated
-    eventually {
-      f2.futureValue shouldBe an[Terminated]
-    }
-  }
-
   override def afterAll(): Unit = {
     super.afterAll()
+    TestKit.shutdownActorSystem(system, duration = 30.seconds, verifySystemShutdown = true)
     kafkaContainer.stop()
     postgreSQLContainer.stop()
   }

@@ -459,19 +459,19 @@ abstract class PostgreSQLImageName extends PostgreSQLCapturerSpec {
   }
 }
 
-class PostgreSQL104 extends PostgreSQLImageName {
+class PostgreSQLVersion104 extends PostgreSQLImageName {
   override def imageName = "sebastianharko/postgres104:latest"
 }
 
-class PostgreSQL96 extends PostgreSQLImageName {
+class PostgreSQLVersion96 extends PostgreSQLImageName {
   override def imageName = "sebastianharko/postgres96:latest"
 }
 
-class PostgreSQL95 extends PostgreSQLImageName {
+class PostgreSQLVersion95 extends PostgreSQLImageName {
   override def imageName = "sebastianharko/postgres95:latest"
 }
 
-class PostgreSQL94 extends PostgreSQLImageName {
+class PostgreSQLVersion94 extends PostgreSQLImageName {
   override def imageName = "sebastianharko/postgres94:latest"
 }
 
