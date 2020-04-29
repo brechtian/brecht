@@ -111,6 +111,7 @@ class TestCdcStreamingToKafka
     postgreSQL.createTablesIfNotExists("default").futureValue shouldBe Done
     postgreSQL.appendEvents("default", List(event1, event2)).futureValue shouldBe Done
     postgreSQL.appendEvents("default", List(event3)).futureValue shouldBe Done
+    postgreSQL.closePools().futureValue shouldBe Done
   }
 
   test("The events we wrote appear in the change data capture topic in Kafka") {
@@ -146,10 +147,14 @@ class TestCdcStreamingToKafka
 
   }
 
+  test("We can terminate the actor system") {
+    eventually {
+      system.terminate().futureValue shouldBe Done
+    }
+  }
+
   override def afterAll(): Unit = {
     super.afterAll()
-    postgreSQL.closePools()
-    system.terminate()
     kafkaContainer.stop()
     postgreSQLContainer.stop()
   }
