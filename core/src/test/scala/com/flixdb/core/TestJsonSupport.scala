@@ -21,9 +21,18 @@ class TestJsonSupport extends JsonSupport with AnyFunSuiteLike with BeforeAndAft
       timestamp = 42L
     )
 
-    val json: JsValue = e1.toJson
-    val r = json.compactPrint;
-    r shouldBe """{"data":{"owner":"John Smith"},"eventId":"1af2948a-d4dd-48b0-8ca0-cb0fe7562b3d","eventType":"com.megacorp.AccountCreated","sequenceNum":1,"stream":"account-events","subStreamId":"account-123","tags":["megacorp-events"],"timestamp":42}"""
+    val json = e1.toJson.asJsObject()
+
+    json.getFields("eventId") shouldBe Seq(JsString(e1.eventId))
+    json.getFields("eventType") shouldBe Seq(JsString(e1.eventType))
+    json.getFields("subStreamId") shouldBe Seq(JsString(e1.subStreamId))
+    json.getFields("stream") shouldBe Seq(JsString(e1.stream))
+    json.getFields("sequenceNum") shouldBe Seq(JsNumber(e1.sequenceNum))
+    json.getFields("tags") shouldBe Seq(JsArray(JsString("megacorp-events")))
+    json.getFields("timestamp") shouldBe Seq(JsNumber(42))
+    json.getFields("data") shouldBe an[Seq[JsObject]]
+    json.getFields("data").head.asJsObject.getFields("owner") shouldBe Seq(JsString("John Smith"))
+
   }
 
   test("DTOs: we can deserialize json to 'PostEvent'") {

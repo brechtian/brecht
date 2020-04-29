@@ -14,6 +14,10 @@ object FlixDbConfiguration extends ExtensionId[FlixDbConfigurationImpl] with Ext
 class FlixDbConfigurationImpl(actorSystem: ExtendedActorSystem) extends Extension {
 
   private val config = actorSystem.settings.config.getConfig("flixdb")
+
   val cdcKafkaStreamName = config.getString("change-data-capture-stream-name")
+
+  val requestQueueSize = config.getInt("request-queue-size")
+
 
 }

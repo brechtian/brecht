@@ -20,7 +20,8 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
         data = """{"owner": 42}""",
         stream = "accounts",
         tags = List("users"),
-        timestamp = Long.MinValue
+        timestamp = Long.MinValue,
+        snapshot = false
       ) :: Nil
 
     val event1 = PublishMsgs.PbEventEnvelope.defaultInstance
@@ -91,7 +92,8 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
       data = """{"owner": "John Smith"}""",
       stream = "accounts",
       tags = List("megacorp"),
-      timestamp = 42L
+      timestamp = 42L,
+      snapshot = false
     )
 
     val result = SubStreamActor.toProtobuf(event1 :: Nil)
@@ -123,7 +125,8 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
           data = """{"amount":888}""",
           stream = "accounts",
           tags = Nil,
-          timestamp = -1
+          timestamp = -1,
+          snapshot = false
         )
       )
       .toList
@@ -157,7 +160,8 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
           data = """{"amount":888}""",
           stream = "accounts",
           tags = Nil,
-          timestamp = -1
+          timestamp = -1,
+          snapshot = false
         )
       )
       .toList
@@ -242,7 +246,8 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
           data = """{"amount":888}""",
           stream = "accounts",
           tags = Nil,
-          timestamp = -1
+          timestamp = -1,
+          snapshot = false
         )
       )
       .toList

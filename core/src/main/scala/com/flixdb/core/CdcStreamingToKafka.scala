@@ -70,7 +70,7 @@ class CdcActor extends Actor with ActorLogging {
   val flixDbConfiguration = FlixDbConfiguration(system)
   val producerSettings = KafkaSettings(system).getProducerSettings
 
-  val dataSource: HikariDataSource = HikariCP(system).getPool("postgres-cdc")
+  val dataSource: HikariDataSource = HikariCP(system).getPool("postgresql-cdc-pool")
   val topic = flixDbConfiguration.cdcKafkaStreamName
   val sink = Producer.plainSink(producerSettings)
   val stream = ChangeDataCapture

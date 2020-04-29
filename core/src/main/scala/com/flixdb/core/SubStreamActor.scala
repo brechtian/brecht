@@ -3,12 +3,12 @@ package com.flixdb.core
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{Actor, ActorLogging, Stash}
 import akka.pattern.pipe
-import com.flixdb.core.PostgreSQLExtensionImpl.PostgreSQLJournalException.TooManyRequests
-import com.flixdb.core.PostgreSQLExtensionImpl.PublishEventsResult
+import com.flixdb.core.postgresql.PostgreSQLExtensionImpl.PostgreSQLJournalException.TooManyRequests
+import com.flixdb.core.postgresql.PostgreSQLExtensionImpl.{GetEventsResult, PublishEventsResult}
+import com.flixdb.core.postgresql.{PostgreSQL, SQLCompositeException}
 import com.flixdb.core.protobuf.GetMsgs._
 import com.flixdb.core.protobuf.PublishMsgs._
 import com.flixdb.core.protobuf._
-import com.flixdb.core.{PostgreSQLExtensionImpl => Journal}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -20,7 +20,7 @@ class SubStreamActor extends Actor with ActorLogging with Stash {
 
   context.setReceiveTimeout(120.seconds) // TODO: move to configuration
 
-  val journal: Journal = PostgreSQL(context.system)
+  val journal = PostgreSQL(context.system)
   var isRecovered = false
   var eventEnvelopes: List[EventEnvelope] = Nil // the current state of the entity
 
@@ -107,7 +107,7 @@ class SubStreamActor extends Actor with ActorLogging with Stash {
 
   def recovering: Receive = {
 
-    case result: Journal.GetEventsResult =>
+    case result: GetEventsResult =>
       log.info("recovered with {}", result.eventEnvelopes.size)
       isRecovered = true
       this.eventEnvelopes = result.eventEnvelopes
@@ -189,7 +189,8 @@ object SubStreamActor {
         data = ee.data,
         stream = stream,
         tags = ee.tags.toList,
-        timestamp = timestamp
+        timestamp = timestamp,
+        snapshot = false
       )
     )
   }.toList
