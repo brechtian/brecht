@@ -2,19 +2,12 @@ language: scala
 
 jdk:
   - openjdk14
-  - oraclejdk14
   - openjdk13
-  - oraclejdk13
   - openjdk12
-  - oraclejdk12
   - openjdk11
-  - oralejdk11
   - openjdk10
-  - oraclejdk10
   - openjdk9
-  - oraclejdk9
   - openjdk8
-  - oraclejdk8
 
 services:
   - docker
