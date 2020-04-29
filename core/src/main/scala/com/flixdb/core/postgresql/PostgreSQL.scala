@@ -5,7 +5,7 @@ import akka.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId, Ext
 import akka.event.LoggingAdapter
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{ActorAttributes, OverflowStrategy, QueueOfferResult, Supervision}
-import com.flixdb.core.EventEnvelope
+import com.flixdb.core.{EventEnvelope, FlixDbConfiguration}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.reflect.ClassTag
@@ -78,9 +78,11 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
 
   private val logger: LoggingAdapter = akka.event.Logging(system, classOf[PostgreSQLExtensionImpl])
 
+  private val flixDbConfiguration = FlixDbConfiguration(system)
+
   private val dataAccess = new PostgresSQLDataAccessLayer()
 
-  private val requestsBufferSize = 1000 // TODO: move to configuration
+  private val requestsBufferSize = flixDbConfiguration.requestQueueSize
 
   private val alwaysResumeDecider: Supervision.Decider = { t: Throwable =>
     logger.info("Caught error but resuming")
@@ -91,16 +93,16 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
 
   def createTablesIfNotExists(namespace: String): Future[Done] = dataAccess.createTablesIfNotExists(namespace)
 
-  private def completeRequest[T <: Result](request: ResultPromise[T], f: () => Future[T])(
+  private def completeRequest[T <: Result](requestWithResultPromise: ResultPromise[T], f: () => Future[T])(
       implicit ec: ExecutionContext,
       tag: ClassTag[T]
   ): Future[T] = {
     f().transformWith {
       case f @ Failure(throwable: Throwable) =>
-        request.resultPromise.complete(f)
+        requestWithResultPromise.resultPromise.complete(f)
         Future.failed(throwable)
       case s @ Success(value: T) =>
-        request.resultPromise.complete(s)
+        requestWithResultPromise.resultPromise.complete(s)
         Future.successful(value)
     }
   }

@@ -97,8 +97,8 @@ abstract class SnapshottingSpec extends BaseSnapshottingSpec {
   )
 
   test("Appending some events") {
-    dataAccess.createTablesIfNotExists("megacorp")
-    dataAccess.createTablesIfNotExists("megacorp_backup")
+    dataAccess.createTablesIfNotExists("megacorp").futureValue shouldBe Done
+    dataAccess.createTablesIfNotExists("megacorp_backup").futureValue shouldBe Done
     dataAccess.appendEvents("megacorp", List(event1, event2, event3)).futureValue shouldBe Done
     dataAccess.appendEvents("megacorp", List(event4)).futureValue shouldBe Done
     dataAccess.appendEvents("megacorp", List(event5)).futureValue shouldBe Done
@@ -201,3 +201,4 @@ abstract class BaseSnapshottingSpec
   }
 
 }
+
