@@ -7,10 +7,6 @@
         </encoder>
     </appender>
 
-    <logger name="com.zaxxer.hikari" level="OFF" additivity="false">
-        <appender-ref ref="STDOUT"/>
-    </logger>
-
     <root level="OFF">
         <appender-ref ref="STDOUT"/>
     </root>

@@ -9,7 +9,7 @@
         </encoder>
     </appender>
 
-    <logger name="com.zaxxer.hikari" level="INFO" additivity="false">
+    <logger name="com.zaxxer.hikari" level="ERROR" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
 
