@@ -3,7 +3,7 @@ package com.flixdb.core
 import java.util.UUID.randomUUID
 
 import akka.Done
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Terminated}
 import akka.kafka.Subscriptions
 import akka.kafka.scaladsl.Consumer
 import akka.stream.testkit.scaladsl.TestSink
@@ -148,8 +148,10 @@ class TestCdcStreamingToKafka
   }
 
   test("We can terminate the actor system") {
+    system.terminate()
+    val f = system.whenTerminated
     eventually {
-      system.terminate().futureValue shouldBe Done
+      f.futureValue shouldBe Terminated
     }
   }
 
