@@ -40,19 +40,18 @@ transaction id. A [Change]() can be one of the following:
 
 The PostgreSQL JDBC driver is included in the main JAR.
 ```
-resolvers +=
-  "io.cloudrepo" at "https://flixdb.mycloudrepo.io/public/repositories/cdc"
+TODO: publish JAR to Bintray
 
 libraryDependencies += "com.flixdb" %% "cdc" % "0.1"
 ```
 
 ### Reported Issues
-Feel free to use [Github]() not only to report issues but also to provide general feedback. You are also very welcome
+Feel free to use [Github](https://github.com/flixdb/flixdb/issues) not only to report issues but also to provide general feedback. You are also very welcome
 to discuss anything related to this module on the [Gitter]() channel. 
 
 ### Samples
 
-Sample applications are available (in Java as well as in Scala) at this link: [examples]().
+Sample applications are available at this link: [examples](https://github.com/flixdb/flixdb/tree/master/cdc/samples/). 
 
 ## Usage
 
@@ -97,9 +96,8 @@ Example source settings:
 Scala
 
 ```
-val changeDataCaptureSettings = PgCdcSourceSettings()]
-  .withSlotName("cdc")
-  .withCreateSlotOnStart(true) 
+val changeDataCaptureSettings = PgCdcSourceSettings(slotName = "cdc") 
+  .withCreateSlotOnStart(true)
   .withMode(Modes.Get)
   .withColumnsToIgnore(Map("images" -> List("binary"), "user_personal_information" -> List("*")))
   // ignore the binary column in the images table and ignore the user_personal_information table
@@ -115,8 +113,8 @@ implicit val system: ActorSystem = ActorSystem()
 val slotName = "slot_name"
 
 ChangeDataCapture
-  .source(hikariDataSource, PgCdcSourceSettings().withSlotName(slotName))
-  .log("postgresqlcdc", cs ⇒ s"Captured changes: ${cs.toString}")
+  .source(hikariDataSource, PgCdcSourceSettings(slotName))
+  .log("postgresqlcdc", cs => s"Captured changes: ${cs.toString}")
   .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
   .to(Sink.ignore)
   .run()
@@ -127,8 +125,8 @@ ChangeDataCapture
 
 You'll only need an Ack Sink if you choose the Peek mode (think "at least once").
 
-To build a Sink we need a DataSource (e.g., HikariCP) and a [PgAckSinkSettings]() object.
-Our goal is to optimize the defaults of [PgAckSinkSettings]() so that for most use cases you'll never have to change
+To build a Sink we need a DataSource (e.g., HikariCP) and a [PgAckSettings]() object.
+Our goal is to optimize the defaults of [PgAckSettings]() so that for most use cases you'll never have to change
 anything. However, you'll need to specify the slotName. 
 
 
@@ -154,18 +152,18 @@ case class UserRegistered(id: String)
 
 val slotName = "slot_name"
 
-val source = ChangeDataCapture.source(hikariDataSource, PgCdcSourceSettings().withSlotName(slotName))
-val ackSink = ChangeDataCapture.ackSink(hikariDataSource, PgCdcAckSinkSettings().withSlotName(slotName))
+val source = ChangeDataCapture.source(hikariDataSource, PgCdcSourceSettings(slotName))
+val ackSink = ChangeDataCapture.ackSink(hikariDataSource, PgCdcAckSinkSettings(slotName))
 
 source
   .mapConcat(_.changes)
-  .collect { // collect is map and filter
-    case change @ RowInserted("public", "users", _, _, data) =>
+  .collect {
+    case change @ RowInserted("public", "users", _, _, data, _) =>
       val userId = data("user_id")
       (change, UserRegistered(userId))
   }
-  .map(identity) // do something useful e.g., publish to SQS
-  .map(t => AckLogSeqNum(t._1.commitLogSeqNum))
+  .map(???) // do something useful e.g., publish to SQS
+  .map(t => AckLogSeqNum(t._2.commitLogSeqNum))
   .to(ackSink) // acknowledge
   .run()
 
