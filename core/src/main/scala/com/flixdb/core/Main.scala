@@ -16,9 +16,7 @@ object Main extends App with JsonSupport {
   private implicit val executionContext: ExecutionContextExecutor =
     system.dispatcher
 
-  private val defaultNamespace =
-    system.settings.config.getString("default.namespace")
-
+  private val flixDbConfiguration = FlixDbConfiguration(system)
   private val postgreSQL = PostgreSQL(system)
 
   private val httpInterface = new HttpInterface()
@@ -26,7 +24,7 @@ object Main extends App with JsonSupport {
   for {
     validate <- postgreSQL.validate()
     _ = logger.info("Validated connection pool")
-    schema <- postgreSQL.createTablesIfNotExists(defaultNamespace)
+    schema <- postgreSQL.createTablesIfNotExists(flixDbConfiguration.defaultNamespace)
     _ = logger.info("Created schema")
     routes <- httpInterface.start()
     _ = logger.info("Started HTTP interface")

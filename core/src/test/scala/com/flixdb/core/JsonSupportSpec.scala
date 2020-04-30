@@ -4,11 +4,11 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers
 
-class TestJsonSupport extends JsonSupport with AnyFunSuiteLike with BeforeAndAfterAll with Matchers {
+class JsonSupportSpec extends JsonSupport with AnyFunSuiteLike with BeforeAndAfterAll with Matchers {
 
   import spray.json._
 
-  test("DTOs: we can serialize an 'Event'") {
+  test("DTOs: Serializing an 'Event'") {
 
     val e1 = Dtos.Event(
       eventId = "1af2948a-d4dd-48b0-8ca0-cb0fe7562b3d",
@@ -35,7 +35,7 @@ class TestJsonSupport extends JsonSupport with AnyFunSuiteLike with BeforeAndAft
 
   }
 
-  test("DTOs: we can deserialize json to 'PostEvent'") {
+  test("DTOs: Deserializing json into 'PostEvent'") {
 
     val json: JsValue =
       """|{"data":{"owner":"John Smith"},  

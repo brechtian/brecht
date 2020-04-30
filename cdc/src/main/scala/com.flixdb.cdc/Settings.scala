@@ -39,7 +39,7 @@ object Plugins {
   */
 final case class PgCdcSourceSettings(
     mode: Mode = Modes.Get,
-    slotName: String = null,
+    slotName: String,
     createSlotOnStart: Boolean = true,
     dropSlotOnFinish: Boolean = false,
     plugin: Plugin = Plugins.TestDecoding,
@@ -68,15 +68,15 @@ final case class PgCdcSourceSettings(
 
 }
 
-final case class PgCdcAckSinkSettings(
+final case class PgCdcAckSettings(
     slotName: String,
     maxItems: Int = 16,
     maxItemsWait: FiniteDuration = 3000.milliseconds
 ) {
 
-  def withMaxItemsWait(maxItemsWait: FiniteDuration): PgCdcAckSinkSettings =
+  def withMaxItemsWait(maxItemsWait: FiniteDuration): PgCdcAckSettings =
     copy(maxItemsWait = maxItemsWait)
 
-  def withMaxItems(maxItems: Int): PgCdcAckSinkSettings = copy(maxItems = maxItems)
+  def withMaxItems(maxItems: Int): PgCdcAckSettings = copy(maxItems = maxItems)
 
 }

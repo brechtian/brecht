@@ -39,9 +39,9 @@ class SubStreamShardingImpl(system: ExtendedActorSystem) extends Extension {
 
   private val extractShardId: ShardRegion.ExtractShardId = {
     case msg: protobuf.GetMsgs.PbGetEventsRequest =>
-      (getId(msg).hashCode % numberOfShards).toString
+      (Math.abs(getId(msg).hashCode % numberOfShards)).toString
     case msg: protobuf.PublishMsgs.PbPublishEventsRequest =>
-      (getId(msg).hashCode % numberOfShards).toString
+      (Math.abs(getId(msg).hashCode % numberOfShards)).toString
   }
 
   val subStreams: ActorRef = ClusterSharding(system).start(

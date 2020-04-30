@@ -138,7 +138,7 @@ abstract class PostgreSQLCapturerSpec
       val emptyData = Map.empty[String, String]
 
       ChangeDataCapture
-        .source(dataSource = ds, PgCdcSourceSettings().withSlotName("scalatest"))
+        .source(dataSource = ds, PgCdcSourceSettings(slotName = "scalatest"))
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
         .runWith(TestSink.probe[ChangeSet])
@@ -241,7 +241,7 @@ abstract class PostgreSQLCapturerSpec
       deleteSale(conn, 0)
 
       ChangeDataCapture
-        .source(ds, PgCdcSourceSettings().withSlotName("scalatest"))
+        .source(ds, PgCdcSourceSettings(slotName = "scalatest"))
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -308,7 +308,7 @@ abstract class PostgreSQLCapturerSpec
       deletePurchaseOrder(conn, id = 0)
 
       ChangeDataCapture
-        .source(ds, PgCdcSourceSettings().withSlotName("scalatest"))
+        .source(ds, PgCdcSourceSettings(slotName = "scalatest"))
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -336,7 +336,7 @@ abstract class PostgreSQLCapturerSpec
       import javax.xml.bind.DatatypeConverter // this has a parseHexBinary method that turns out to be useful here
 
       ChangeDataCapture
-        .source(ds, PgCdcSourceSettings().withSlotName("scalatest"))
+        .source(ds, PgCdcSourceSettings(slotName = "scalatest"))
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -361,7 +361,7 @@ abstract class PostgreSQLCapturerSpec
       deleteEmployees(conn)
 
       ChangeDataCapture
-        .source(ds, PgCdcSourceSettings().withSlotName("scalatest"))
+        .source(ds, PgCdcSourceSettings(slotName = "scalatest"))
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -386,7 +386,7 @@ abstract class PostgreSQLCapturerSpec
       deleteWeathers(conn)
 
       ChangeDataCapture
-        .source(ds, PgCdcSourceSettings().withSlotName("scalatest"))
+        .source(ds, PgCdcSourceSettings(slotName = "scalatest"))
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -421,7 +421,7 @@ abstract class PostgreSQLCapturerSpec
       ChangeDataCapture
         .source(
           ds,
-          PgCdcSourceSettings().withSlotName("scalatest")
+          PgCdcSourceSettings(slotName = "scalatest")
             .withColumnsToIgnore(Map("employees" -> List("*"), "sales" -> List("info")))
         )
         .mapConcat(_.changes)
@@ -459,19 +459,19 @@ abstract class PostgreSQLImageName extends PostgreSQLCapturerSpec {
   }
 }
 
-class PostgreSQLVersion104 extends PostgreSQLImageName {
+class ChangeDataCapturePostgreSQLVersion104 extends PostgreSQLImageName {
   override def imageName = "sebastianharko/postgres104:latest"
 }
 
-class PostgreSQLVersion96 extends PostgreSQLImageName {
+class ChangeDataCapturePostgreSQLVersion96 extends PostgreSQLImageName {
   override def imageName = "sebastianharko/postgres96:latest"
 }
 
-class PostgreSQLVersion95 extends PostgreSQLImageName {
+class ChangeDataCapturePostgreSQLVersion95 extends PostgreSQLImageName {
   override def imageName = "sebastianharko/postgres95:latest"
 }
 
-class PostgreSQLVersion94 extends PostgreSQLImageName {
+class ChangeDataCapturePostgreSQLVersion94 extends PostgreSQLImageName {
   override def imageName = "sebastianharko/postgres94:latest"
 }
 

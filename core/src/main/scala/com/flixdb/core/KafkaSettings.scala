@@ -1,5 +1,7 @@
 package com.flixdb.core
 
+import java.util.Properties
+
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 import akka.kafka.{ConsumerSettings, ProducerSettings}
 import com.typesafe.config.Config
@@ -18,20 +20,32 @@ object KafkaSettings extends ExtensionId[KafkaSettingsImpl] with ExtensionIdProv
 
 class KafkaSettingsImpl(system: ExtendedActorSystem) extends Extension {
 
-  def toMap(config: Config): Map[String, String] = {
+  private val config = system.settings.config.getConfig("kafka")
+
+  private def toMap(config: Config): Map[String, String] = {
     val map = mutable.Map[String, String]()
     config.entrySet.forEach(e => map.addOne(e.getKey, config.getString(e.getKey)))
     map.toMap
   }
 
+  private val configAsMap = toMap(config)
+
+  val properties = {
+    val properties = new Properties()
+    configAsMap.foreach {
+      case (k, v) => properties.put(k, v)
+    }
+    properties
+  }
+
   def getProducerSettings: ProducerSettings[String, String] = {
     ProducerSettings(system, new StringSerializer, new StringSerializer)
-      .withProperties(toMap(system.settings.config.getConfig("kafka")))
+      .withProperties(configAsMap)
   }
 
   def getBaseConsumerSettings: ConsumerSettings[String, String] = {
     ConsumerSettings(system, new StringDeserializer, new StringDeserializer )
-      .withProperties(toMap(system.settings.config.getConfig("kafka")))
+      .withProperties(configAsMap)
   }
 
 }

@@ -13,6 +13,12 @@ as soon as we are notified of a change to the data in the database). But more ge
 This module is part of FlixDb, but it can be used independently. The module is succesfully used internally by FlixDb to stream events from its
 PostgreSQL backend to Kafka.
 
+## Roadmap
+
+This is under active development! Some items on our roadmap are: integration with other streaming
+libraries (e.g., ZIO), supporting the `wal2json` plugin, using PGReplicationStream instead
+of the current approach and adding monitoring capabilities (i.e. Prometheus/Grafana). 
+
 ## How it Works
 
 This Akka Stream Source makes use of the "logical decoding" feature of PostgreSQL (available since PostgreSQL 9.4).
@@ -82,7 +88,7 @@ anything. However, you will need to specify the slotName.
 | dropSlotOnFinish  | Drop the logical replication slot on stop     | false        | no       |
 | plugin            | Only one option as of now                     | TestDecoding | no       |
 | columnsToIgnore   | What columns to ignore per table. * syntax is supported: use it to ignore all columns in a table or all columns with a given name regardless of what table they are in | none | no |
-| mode              | Choose between "Get" (at most once) or  "Peek" (at least once). If you choose "Peek", you'll need the [Ack Sink] to acknowledge consumption of the event  | Get | no |
+| mode              | Choose between "Get" (think "at most once") or  "Peek" (think "at least once"). If you choose "Peek", you'll need the [Ack Sink] to acknowledge consumption of the event  | Get | no |
 | maxItems          | Maximum number of changes to pull in one go   | 128          | no           |
 | pollInterval      | Duration between polls                        | 2 seconds    | no           |
 
@@ -119,7 +125,7 @@ ChangeDataCapture
 
 ### Ack Sink Settings
 
-You'll only need an Ack Sink if you choose the "at least once" delivery mode.
+You'll only need an Ack Sink if you choose the Peek mode (think "at least once").
 
 To build a Sink we need a DataSource (e.g., HikariCP) and a [PgAckSinkSettings]() object.
 Our goal is to optimize the defaults of [PgAckSinkSettings]() so that for most use cases you'll never have to change
