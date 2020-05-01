@@ -32,20 +32,22 @@ object Plugins {
   * @param slotName Name of the logical decoding slot
   * @param createSlotOnStart Create logical decoding slot when the source starts (if it doesn't already exist...)
   * @param dropSlotOnFinish Drop the logical decoding slot when the source stops
+  * @param closeDataSourceOnFinish Closes the data source when the stream stops
   * @param plugin Plugin to use. Only "test_decoding" supported right now.
   * @param columnsToIgnore Columns to ignore
   * @param maxItems Specifies how many rows are fetched in one batch
-  * @param pollInterval Duration between polls
+  * @param pollInterval Roughly "duration between polls"
   */
 final case class PgCdcSourceSettings(
     mode: Mode = Modes.Get,
     slotName: String,
     createSlotOnStart: Boolean = true,
     dropSlotOnFinish: Boolean = false,
+    closeDataSourceOnFinish: Boolean = false,
     plugin: Plugin = Plugins.TestDecoding,
     columnsToIgnore: Map[String, List[String]] = Map(),
     maxItems: Int = 128,
-    pollInterval: FiniteDuration = 2000.milliseconds
+    pollInterval: FiniteDuration = 250.milliseconds
 ) {
 
   def withMode(mode: Mode): PgCdcSourceSettings =

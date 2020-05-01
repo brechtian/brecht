@@ -102,7 +102,7 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
     try {
       conn = getConnection
       log.info("Dropping logical replication slot {}", slotName)
-      stmt = conn.prepareStatement(s"SELECT * FROM pg_drop_logical_replication_slot(?)")
+      stmt = conn.prepareStatement(s"SELECT * FROM pg_drop_replication_slot(?)")
       stmt.setString(1, slotName)
       stmt.execute()
     } catch {

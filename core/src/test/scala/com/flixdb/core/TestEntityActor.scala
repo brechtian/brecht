@@ -2,10 +2,11 @@ package com.flixdb.core
 
 import java.util.UUID.randomUUID
 
+import com.flixdb.core.protobuf.write.PbPublishEventsRequest
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers
-import com.flixdb.core.protobuf.PublishMsgs
+import protobuf._
 
 class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matchers {
 
@@ -24,21 +25,21 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
         snapshot = false
       ) :: Nil
 
-    val event1 = PublishMsgs.PbEventEnvelope.defaultInstance
+    val event1 = write.PbEventEnvelope.defaultInstance
       .withSequenceNum(0)
       .withData("""{"owner": 42}""")
       .withEventId("a4157b56-a915-4f1c-95c9-3907f47c9d0e")
       .withEventType("com.megacorp.AccountCreated")
       .withTags(List("users"))
 
-    val event2 = PublishMsgs.PbEventEnvelope.defaultInstance
+    val event2 = write.PbEventEnvelope.defaultInstance
       .withSequenceNum(1)
       .withData("""{"owner": 42}""")
       .withEventId("431b2c79-6d10-4de8-b420-795d8d6f79ef")
       .withEventType("com.megacorp.AccountSuspended")
       .withTags(List("users"))
 
-    val request = PublishMsgs.PbPublishEventsRequest.defaultInstance
+    val request = PbPublishEventsRequest.defaultInstance
       .withNamespace("default")
       .withStream("accounts")
       .withSubStreamId("account-42")
@@ -53,7 +54,7 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
 
   test("Event envelopes conversion from Protocol Buffers") {
 
-    val event1 = PublishMsgs.PbEventEnvelope.defaultInstance
+    val event1 = write.PbEventEnvelope.defaultInstance
       .withSequenceNum(1)
       .withData("""{"owner": 42}""")
       .withEventId(randomUUID().toString)
@@ -97,7 +98,7 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
     )
 
     val result = SubStreamActor.toProtobuf(event1 :: Nil)
-    result shouldBe an[List[PublishMsgs.PbEventEnvelope]]
+    result shouldBe an[List[write.PbEventEnvelope]]
     val element = result.head
 
     element.eventId shouldBe event1.eventId
@@ -131,11 +132,11 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
       )
       .toList
 
-    val newEvents = (2 to 4).map(i => PublishMsgs.PbEventEnvelope.defaultInstance.withSequenceNum(i))
+    val newEvents = (2 to 4).map(i => write.PbEventEnvelope.defaultInstance.withSequenceNum(i))
 
     SubStreamActor.validateSeqNumberRange(
       existingEvents,
-      PublishMsgs.PbPublishEventsRequest.defaultInstance
+      write.PbPublishEventsRequest.defaultInstance
         .withNamespace("default")
         .withSubStreamId("42")
         .withStream("accounts")
@@ -166,11 +167,11 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
       )
       .toList
 
-    val newEvents = (3 to 5).map(i => PublishMsgs.PbEventEnvelope.defaultInstance.withSequenceNum(i))
+    val newEvents = (3 to 5).map(i => write.PbEventEnvelope.defaultInstance.withSequenceNum(i))
 
     SubStreamActor.validateSeqNumberRange(
       existingEvents,
-      PublishMsgs.PbPublishEventsRequest.defaultInstance
+      write.PbPublishEventsRequest.defaultInstance
         .withNamespace("default")
         .withSubStreamId("42")
         .withStream("accounts")
@@ -185,7 +186,7 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
 
     SubStreamActor.validateSeqNumberRange(
       eventEnvelopes = Nil,
-      PublishMsgs.PbPublishEventsRequest.defaultInstance
+      write.PbPublishEventsRequest.defaultInstance
         .withNamespace("default")
         .withSubStreamId("42")
         .withStream("accounts")
@@ -198,11 +199,11 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
 
     val existingEvents = Nil
 
-    val newEvents = (0 to 5).map(i => PublishMsgs.PbEventEnvelope.defaultInstance.withSequenceNum(i))
+    val newEvents = (0 to 5).map(i => write.PbEventEnvelope.defaultInstance.withSequenceNum(i))
 
     SubStreamActor.validateSeqNumberRange(
       existingEvents,
-      PublishMsgs.PbPublishEventsRequest.defaultInstance
+      write.PbPublishEventsRequest.defaultInstance
         .withNamespace("default")
         .withSubStreamId("42")
         .withStream("accounts")
@@ -217,11 +218,11 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
 
     val existingEvents = Nil
 
-    val newEvents = (1 to 5).map(i => PublishMsgs.PbEventEnvelope.defaultInstance.withSequenceNum(i))
+    val newEvents = (1 to 5).map(i => write.PbEventEnvelope.defaultInstance.withSequenceNum(i))
 
     SubStreamActor.validateSeqNumberRange(
       existingEvents,
-      PublishMsgs.PbPublishEventsRequest.defaultInstance
+      write.PbPublishEventsRequest.defaultInstance
         .withNamespace("default")
         .withSubStreamId("42")
         .withStream("accounts")
@@ -256,7 +257,7 @@ class TestEntityActor extends AnyFunSuiteLike with BeforeAndAfterAll with Matche
 
     SubStreamActor.validateSeqNumberRange(
       existingEvents,
-      PublishMsgs.PbPublishEventsRequest.defaultInstance
+      write.PbPublishEventsRequest.defaultInstance
         .withNamespace("default")
         .withSubStreamId("42")
         .withStream("accounts")

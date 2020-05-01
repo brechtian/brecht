@@ -4,13 +4,14 @@ import java.io.Closeable
 
 import akka.actor.ActorSystem
 import akka.dispatch.MessageDispatcher
-import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.{ActorAttributes, DelayOverflowStrategy}
 import akka.{Done, NotUsed}
 import javax.sql.DataSource
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
 class ChangeDataCapture
 
@@ -41,7 +42,7 @@ object ChangeDataCapture {
     result
   }
 
-  private val deduplicate = Flow[ChangeSet].statefulMapConcat { () =>
+  private val deduplicate: Flow[ChangeSet, ChangeSet, NotUsed] = Flow[ChangeSet].statefulMapConcat { () =>
     var lastSeenTransactionId = Long.MinValue;
     { element: ChangeSet =>
       if (element.transactionId > lastSeenTransactionId) {
@@ -52,6 +53,11 @@ object ChangeDataCapture {
         Nil
       }
     }
+  }
+
+  def delayed(delay: FiniteDuration)(implicit system: ActorSystem): Future[Done] = {
+    import system.dispatcher
+    akka.pattern.after(delay, using = system.scheduler)(Future.successful(Done))
   }
 
   def source(dataSource: DataSource with Closeable, settings: PgCdcSourceSettings)(
@@ -68,21 +74,32 @@ object ChangeDataCapture {
             createSlotIfNotExists(pg, settings)
             (pg, settings)
           },
-        read = s =>
-          Future {
-            val pg = s._1
-            val settings = s._2
+        read = s => {
+          val pg = s._1
+          val settings = s._2
+          def f(): Future[Some[List[ChangeSet]]] = Future {
             Some(getAndParseChanges(pg, settings))
-          },
-        close = s =>
+          }
+          if (settings.pollInterval.toMillis != 0) {
+            delayed(settings.pollInterval).flatMap(_ => f())
+          } else {
+            f()
+          }
+        },
+        close = s => {
+          val pg = s._1
+          val settings = s._2
           Future {
-            val pg = s._1
-            val settings = s._2
             if (settings.dropSlotOnFinish) {
               pg.dropSlot(settings.slotName)
             }
+            if (settings.closeDataSourceOnFinish) {
+              logger.info("Closing data source")
+              dataSource.close()
+            }
             Done
           }
+        }
       )
       .mapConcat(identity)
       .via(deduplicate)

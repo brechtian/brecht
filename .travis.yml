@@ -30,3 +30,5 @@ before_cache:
 script:
   - sbt "project cdc;+test"
   - sbt "project core;test"
+  - cd cdc/samples/scala
+  - sbt compile

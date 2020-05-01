@@ -80,16 +80,17 @@ anything. However, you will need to specify the slotName.
 
 [PgCdcSourceSettings]():
 
-| Setting           | Meaning                                       | Default      | Required |
-| ------------------|-----------------------------------------------|--------------|----------|
-| slotName          | Name of the logical replication slot          | null         | yes      |
-| createSlotOnStart | Create the logical replication slot on start  | true         | no       |
-| dropSlotOnFinish  | Drop the logical replication slot on stop     | false        | no       |
-| plugin            | Only one option as of now                     | TestDecoding | no       |
-| columnsToIgnore   | What columns to ignore per table. * syntax is supported: use it to ignore all columns in a table or all columns with a given name regardless of what table they are in | none | no |
-| mode              | Choose between "Get" (think "at most once") or  "Peek" (think "at least once"). If you choose "Peek", you'll need the [Ack Sink] to acknowledge consumption of the event  | Get | no |
-| maxItems          | Maximum number of changes to pull in one go   | 128          | no           |
-| pollInterval      | Duration between polls                        | 2 seconds    | no           |
+| Setting                 | Meaning                                       | Default      | Required |
+| ------------------------|-----------------------------------------------|--------------|----------|
+| slotName                | Name of the logical replication slot          | null         | yes      |
+| createSlotOnStart       | Create the logical replication slot on start  | true         | no       |
+| dropSlotOnFinish        | Drop the logical replication slot on stop     | false        | no       |
+| closeDataSourceOnFinish | Close the data source when the stream stops   | false        | no       |
+| plugin                  | Only one option as of now                     | TestDecoding | no       |
+| columnsToIgnore         | What columns to ignore per table. * syntax is supported: use it to ignore all columns in a table or all columns with a given name regardless of what table they are in | none | no |
+| mode                    | Choose between "Get" (think "at most once") or  "Peek" (think "at least once"). If you choose "Peek", you'll need the [Ack Sink] to acknowledge consumption of the event  | Get | no |
+| maxItems                | Maximum number of changes to pull in one go   | 128          | no           |
+| pollInterval            | Duration between polls                        | 250 ms       | no           |
 
 Example source settings:
 

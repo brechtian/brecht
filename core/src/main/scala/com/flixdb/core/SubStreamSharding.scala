@@ -2,8 +2,8 @@ package com.flixdb.core
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, Props}
 import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings, ShardRegion}
-import com.flixdb.core.protobuf.GetMsgs.PbGetEventsRequest
-import com.flixdb.core.protobuf.PublishMsgs.PbPublishEventsRequest
+import com.flixdb.core.protobuf.read.PbGetEventsRequest
+import com.flixdb.core.protobuf.write.PbPublishEventsRequest
 
 object SubStreamSharding extends ExtensionId[SubStreamShardingImpl] with ExtensionIdProvider {
 
@@ -29,18 +29,18 @@ class SubStreamShardingImpl(system: ExtendedActorSystem) extends Extension {
   }
 
   private val extractEntityId: ShardRegion.ExtractEntityId = {
-    case msg: protobuf.GetMsgs.PbGetEventsRequest =>
+    case msg: protobuf.read.PbGetEventsRequest =>
       buildId(msg.namespace, msg.stream, msg.subStreamId) -> msg
-    case msg: protobuf.PublishMsgs.PbPublishEventsRequest =>
+    case msg: protobuf.write.PbPublishEventsRequest =>
       buildId(msg.namespace, msg.stream, msg.subStreamId) -> msg
   }
 
   private val numberOfShards = 100
 
   private val extractShardId: ShardRegion.ExtractShardId = {
-    case msg: protobuf.GetMsgs.PbGetEventsRequest =>
+    case msg: protobuf.read.PbGetEventsRequest =>
       (Math.abs(getId(msg).hashCode % numberOfShards)).toString
-    case msg: protobuf.PublishMsgs.PbPublishEventsRequest =>
+    case msg: protobuf.write.PbPublishEventsRequest =>
       (Math.abs(getId(msg).hashCode % numberOfShards)).toString
   }
 

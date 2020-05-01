@@ -5,9 +5,10 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives.{as, complete, entity, get, onSuccess, path, post, _}
 import akka.http.scaladsl.server.{ExceptionHandler, StandardRoute}
-import com.flixdb.core.protobuf.GetMsgs.{PbEventEnvelope, PbGetEventsResult}
-import com.flixdb.core.protobuf.PublishMsgs.PbPublishEventsResult
+import com.flixdb.core.protobuf.read.PbGetEventsResult
+import com.flixdb.core.protobuf.write.PbPublishEventsResult
 import spray.json.DeserializationException
+import protobuf._
 
 import scala.concurrent.Future
 
@@ -25,34 +26,34 @@ class HttpInterface(implicit system: ActorSystem) extends JsonSupport {
         complete(StatusCodes.InternalServerError)
     }
 
-  private def handleError(err: PbGetEventsResult.ErrorReason): StandardRoute = {
+  private def handleError(err: read.ErrorReason): StandardRoute = {
     err match {
-      case e: PbGetEventsResult.ErrorReason.Unrecognized =>
+      case e: read.ErrorReason.Unrecognized =>
         complete(StatusCodes.InternalServerError)
-      case PbGetEventsResult.ErrorReason.UNKNOWN =>
+      case read.ErrorReason.UNKNOWN =>
         complete(StatusCodes.InternalServerError)
-      case PbGetEventsResult.ErrorReason.NAMESPACE_NOT_FOUND =>
+      case read.ErrorReason.NAMESPACE_NOT_FOUND =>
         complete(StatusCodes.NotFound, Map("error" -> "namespace not found"))
-      case PbGetEventsResult.ErrorReason.TOO_MANY_REQUESTS =>
+      case read.ErrorReason.TOO_MANY_REQUESTS =>
         complete(StatusCodes.TooManyRequests, Map("error" -> "too many requests"))
-      case PbGetEventsResult.ErrorReason.TIMEOUT =>
+      case read.ErrorReason.TIMEOUT =>
         complete(StatusCodes.RequestTimeout, Map("error" -> "request timeout"))
     }
   }
 
-  private def handleError(err: PbPublishEventsResult.ErrorReason): StandardRoute = {
+  private def handleError(err: write.ErrorReason): StandardRoute = {
     err match {
-      case e: PbPublishEventsResult.ErrorReason.Unrecognized =>
+      case e: write.ErrorReason.Unrecognized =>
         complete(StatusCodes.InternalServerError)
-      case PbPublishEventsResult.ErrorReason.UNKNOWN =>
+      case write.ErrorReason.UNKNOWN =>
         complete(StatusCodes.InternalServerError)
-      case PbPublishEventsResult.ErrorReason.NAMESPACE_NOT_FOUND =>
+      case write.ErrorReason.NAMESPACE_NOT_FOUND =>
         complete(StatusCodes.NotFound, Map("error" -> "namespace not found"))
-      case PbPublishEventsResult.ErrorReason.TOO_MANY_REQUESTS =>
+      case write.ErrorReason.TOO_MANY_REQUESTS =>
         complete(StatusCodes.TooManyRequests, Map("error" -> "too many requests"))
-      case PbPublishEventsResult.ErrorReason.TIMEOUT =>
+      case write.ErrorReason.TIMEOUT =>
         complete(StatusCodes.RequestTimeout, Map("error" -> "request timeout"))
-      case PbPublishEventsResult.ErrorReason.CONCURRENCY_CONFLICT =>
+      case write.ErrorReason.CONCURRENCY_CONFLICT =>
         complete(StatusCodes.Conflict, Map("error" -> "concurrency conflict"))
     }
   }
@@ -64,10 +65,10 @@ class HttpInterface(implicit system: ActorSystem) extends JsonSupport {
           onSuccess(entitySharding.getEvents(namespace, stream, entityId)) {
             pbGetEventsResult: PbGetEventsResult =>
               pbGetEventsResult.result match {
-                case PbGetEventsResult.Result.SUCCESS =>
+                case read.Result.SUCCESS =>
                   val r = Dtos.EventList(
                     pbGetEventsResult.eventEnvelopes
-                      .map((item: PbEventEnvelope) =>
+                      .map((item: read.PbEventEnvelope) =>
                         Dtos.Event(
                           eventId = item.eventId,
                           subStreamId = item.subStreamId,
@@ -76,15 +77,16 @@ class HttpInterface(implicit system: ActorSystem) extends JsonSupport {
                           data = item.data,
                           stream = item.stream,
                           tags = item.tags.toList,
-                          timestamp = item.timestamp
+                          timestamp = item.timestamp,
+                          snapshot = false
                         )
                       )
                       .toList
                   )
                   complete(StatusCodes.OK, r)
-                case PbGetEventsResult.Result.ERROR =>
+                case read.Result.ERROR =>
                   handleError(pbGetEventsResult.errorReason)
-                case msg: PbGetEventsResult.Result.Unrecognized =>
+                case msg: read.Result.Unrecognized =>
                   complete(StatusCodes.InternalServerError)
               }
 
@@ -98,13 +100,13 @@ class HttpInterface(implicit system: ActorSystem) extends JsonSupport {
               envelopesToPublish: Dtos.PostEventList =>
                 {
                   val request =
-                    protobuf.PublishMsgs.PbPublishEventsRequest.defaultInstance
+                    write.PbPublishEventsRequest.defaultInstance
                       .withNamespace(namespace)
                       .withStream(stream)
                       .withSubStreamId(entityId)
                       .withEventEnvelopes(
                         envelopesToPublish.events.map(envelope =>
-                          protobuf.PublishMsgs.PbEventEnvelope(
+                          write.PbEventEnvelope(
                             eventId = envelope.eventId,
                             eventType = envelope.eventType,
                             sequenceNum = envelope.sequenceNum,
@@ -115,11 +117,11 @@ class HttpInterface(implicit system: ActorSystem) extends JsonSupport {
                       )
                   onSuccess(entitySharding.publishEvents(request)) { pbPublishEventsResult: PbPublishEventsResult =>
                     pbPublishEventsResult.result match {
-                      case PbPublishEventsResult.Result.SUCCESS =>
+                      case write.Result.SUCCESS =>
                         complete(StatusCodes.OK)
-                      case PbPublishEventsResult.Result.ERROR =>
+                      case write.Result.ERROR =>
                         handleError(pbPublishEventsResult.errorReason)
-                      case PbPublishEventsResult.Result.Unrecognized(value) =>
+                      case write.Result.Unrecognized(value) =>
                         complete(StatusCodes.InternalServerError)
                     }
                   }

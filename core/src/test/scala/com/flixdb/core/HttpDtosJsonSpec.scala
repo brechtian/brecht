@@ -4,11 +4,11 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers
 
-class JsonSupportSpec extends JsonSupport with AnyFunSuiteLike with BeforeAndAfterAll with Matchers {
+class HttpDtosJsonSpec extends JsonSupport with AnyFunSuiteLike with BeforeAndAfterAll with Matchers {
 
   import spray.json._
 
-  test("DTOs: Serializing an 'Event'") {
+  test("Serializing an 'Event' into json") {
 
     val e1 = Dtos.Event(
       eventId = "1af2948a-d4dd-48b0-8ca0-cb0fe7562b3d",
@@ -18,7 +18,8 @@ class JsonSupportSpec extends JsonSupport with AnyFunSuiteLike with BeforeAndAft
       data = """{"owner":"John Smith"}""",
       stream = "account-events",
       tags = List("megacorp-events"),
-      timestamp = 42L
+      timestamp = 42L,
+      snapshot = false
     )
 
     val json = e1.toJson.asJsObject()
@@ -32,10 +33,10 @@ class JsonSupportSpec extends JsonSupport with AnyFunSuiteLike with BeforeAndAft
     json.getFields("timestamp") shouldBe Seq(JsNumber(42))
     json.getFields("data") shouldBe an[Seq[JsObject]]
     json.getFields("data").head.asJsObject.getFields("owner") shouldBe Seq(JsString("John Smith"))
-
+    json.getFields("snapshot").head shouldBe Seq(JsBoolean(false))
   }
 
-  test("DTOs: Deserializing json into 'PostEvent'") {
+  test("Deserializing json into 'PostEvent'") {
 
     val json: JsValue =
       """|{"data":{"owner":"John Smith"},  

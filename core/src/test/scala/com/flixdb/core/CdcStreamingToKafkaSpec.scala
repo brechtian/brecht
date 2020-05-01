@@ -102,7 +102,7 @@ abstract class CdcStreamingToKafkaSpec extends BaseCdcStreamingToKafkaSpec {
     postgreSQL.appendEvents(namespace, List(johnEvent3)).futureValue shouldBe Done
   }
 
-  test("The events we wrote appear in the Kafka topics") {
+  test("Reading Kafka topics") {
     import org.apache.kafka.clients.consumer.ConsumerRecords
     val result = new ArrayBuffer[(String, String)]
     eventually {

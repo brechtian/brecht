@@ -6,9 +6,9 @@ import akka.pattern.pipe
 import com.flixdb.core.postgresql.PostgreSQLExtensionImpl.PostgreSQLJournalException.TooManyRequests
 import com.flixdb.core.postgresql.PostgreSQLExtensionImpl.{GetEventsResult, PublishEventsResult}
 import com.flixdb.core.postgresql.{PostgreSQL, SQLCompositeException}
-import com.flixdb.core.protobuf.GetMsgs._
-import com.flixdb.core.protobuf.PublishMsgs._
 import com.flixdb.core.protobuf._
+import com.flixdb.core.protobuf.read.{PbGetEventsRequest, PbGetEventsResult}
+import com.flixdb.core.protobuf.write.{PbPublishEventsRequest, PbPublishEventsResult}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -53,7 +53,7 @@ class SubStreamActor extends Actor with ActorLogging with Stash {
     case req: PbGetEventsRequest =>
       log.debug("Got request to get event log, we can respond immediately")
       sender() ! PbGetEventsResult.defaultInstance
-        .withResult(PbGetEventsResult.Result.SUCCESS)
+        .withResult(read.Result.SUCCESS)
         .withEventEnvelopes(toProtobuf(eventEnvelopes))
 
     case origReq: PbPublishEventsRequest =>
@@ -68,8 +68,8 @@ class SubStreamActor extends Actor with ActorLogging with Stash {
         context.become(waitingForWriteResult)
       } else {
         val result = PbPublishEventsResult.defaultInstance
-          .withResult(PbPublishEventsResult.Result.ERROR)
-          .withErrorReason(PbPublishEventsResult.ErrorReason.CONCURRENCY_CONFLICT)
+          .withResult(write.Result.ERROR)
+          .withErrorReason(write.ErrorReason.CONCURRENCY_CONFLICT)
         sender() ! result
       }
 
@@ -80,7 +80,7 @@ class SubStreamActor extends Actor with ActorLogging with Stash {
   def waitingForWriteResult: Receive = {
     case result: PublishEventsResult =>
       sender() ! PbPublishEventsResult.defaultInstance
-        .withResult(PbPublishEventsResult.Result.SUCCESS)
+        .withResult(write.Result.SUCCESS)
       this.eventEnvelopes = this.eventEnvelopes ++ result.eventEnvelopes // TODO: fix this bc it can be slow
       unstashAll()
       context.become(ready)
@@ -88,7 +88,7 @@ class SubStreamActor extends Actor with ActorLogging with Stash {
     case akka.actor.Status.Failure(f: Throwable) =>
       val errorReason = exceptionToPublishEventsErrorReason(f)
       val result = PbPublishEventsResult.defaultInstance
-        .withResult(PbPublishEventsResult.Result.ERROR)
+        .withResult(write.Result.ERROR)
         .withErrorReason(errorReason)
       sender() ! result
       unstashAll()
@@ -117,7 +117,7 @@ class SubStreamActor extends Actor with ActorLogging with Stash {
     case akka.actor.Status.Failure(f: Throwable) =>
       val errorReason = exceptionToGetEventsErrorReason(f)
       val result = PbGetEventsResult.defaultInstance
-        .withResult(PbGetEventsResult.Result.ERROR)
+        .withResult(read.Result.ERROR)
         .withErrorReason(errorReason)
       sender() ! result
       context.stop(self)
@@ -159,9 +159,9 @@ object SubStreamActor {
     expectedSeqRange == actualSeqRange
   }
 
-  def toProtobuf(eventEnvelopes: List[EventEnvelope]): List[GetMsgs.PbEventEnvelope] = {
+  def toProtobuf(eventEnvelopes: List[EventEnvelope]): List[read.PbEventEnvelope] = {
     eventEnvelopes.map(ee => {
-      GetMsgs.PbEventEnvelope.defaultInstance
+      read.PbEventEnvelope.defaultInstance
         .withSubStreamId(ee.subStreamId)
         .withData(ee.data)
         .withEventId(ee.eventId)
@@ -178,7 +178,7 @@ object SubStreamActor {
       stream: String,
       entityId: String,
       timestamp: Long,
-      eventEnvelopes: Seq[PublishMsgs.PbEventEnvelope]
+      eventEnvelopes: Seq[write.PbEventEnvelope]
   ): List[EventEnvelope] = {
     eventEnvelopes.map(ee =>
       EventEnvelope(
@@ -195,31 +195,31 @@ object SubStreamActor {
     )
   }.toList
 
-  def exceptionToPublishEventsErrorReason(ex: Throwable): PublishMsgs.PbPublishEventsResult.ErrorReason = {
+  def exceptionToPublishEventsErrorReason(ex: Throwable): write.ErrorReason = {
     ex match {
       case f: SQLCompositeException if f.isUndefinedTable =>
-        PbPublishEventsResult.ErrorReason.NAMESPACE_NOT_FOUND
+        write.ErrorReason.NAMESPACE_NOT_FOUND
       case f: SQLCompositeException if f.isTimeout =>
-        PbPublishEventsResult.ErrorReason.TIMEOUT
+        write.ErrorReason.TIMEOUT
       case f: SQLCompositeException if f.isConcurrencyConflict =>
-        PbPublishEventsResult.ErrorReason.CONCURRENCY_CONFLICT
+        write.ErrorReason.CONCURRENCY_CONFLICT
       case f: TooManyRequests =>
-        PbPublishEventsResult.ErrorReason.TOO_MANY_REQUESTS
+        write.ErrorReason.TOO_MANY_REQUESTS
       case other =>
-        PbPublishEventsResult.ErrorReason.UNKNOWN
+        write.ErrorReason.UNKNOWN
     }
   }
 
-  def exceptionToGetEventsErrorReason(ex: Throwable): GetMsgs.PbGetEventsResult.ErrorReason = {
+  def exceptionToGetEventsErrorReason(ex: Throwable): read.ErrorReason = {
     ex match {
       case f: SQLCompositeException if f.isUndefinedTable =>
-        PbGetEventsResult.ErrorReason.NAMESPACE_NOT_FOUND
+        read.ErrorReason.NAMESPACE_NOT_FOUND
       case f: SQLCompositeException if f.isTimeout =>
-        PbGetEventsResult.ErrorReason.TIMEOUT
+        read.ErrorReason.TIMEOUT
       case f: TooManyRequests =>
-        PbGetEventsResult.ErrorReason.TOO_MANY_REQUESTS
+        read.ErrorReason.TOO_MANY_REQUESTS
       case other =>
-        PbGetEventsResult.ErrorReason.UNKNOWN
+        read.ErrorReason.UNKNOWN
     }
   }
 
