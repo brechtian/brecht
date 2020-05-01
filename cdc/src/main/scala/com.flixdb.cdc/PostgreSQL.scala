@@ -138,14 +138,14 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
 
     try {
       conn = getConnection
-      statement = conn.prepareStatement("SELECT 1 FROM pg_logical_slot_get_changes(?,?, NULL)")
+      statement = conn.prepareStatement(s"SELECT 1 FROM pg_logical_slot_get_changes(?,'${upToLogSeqNum}', NULL)")
       statement.setString(1, slotName)
-      statement.setString(2, upToLogSeqNum)
       statement.execute()
       log.debug("Acknowledged {}", upToLogSeqNum)
     } catch {
       case NonFatal(e) =>
         log.error("Failed to flush", e)
+        throw e
     } finally {
       attemptCloseStatement(statement)
       attemptCloseConnection(conn)

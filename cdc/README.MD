@@ -38,12 +38,12 @@ transaction id. A [Change]() can be one of the following:
 
 ## Artifacts
 
-The PostgreSQL JDBC driver is included in the main JAR.
 ```
-TODO: publish JAR to Bintray
-
+resolvers += Resolver.bintrayRepo("flixdb", "maven")
 libraryDependencies += "com.flixdb" %% "cdc" % "0.1"
 ```
+
+Note: The PostgreSQL JDBC driver is included in the main JAR.
 
 ### Reported Issues
 Feel free to use [Github](https://github.com/flixdb/flixdb/issues) not only to report issues but also to provide general feedback. You are also very welcome

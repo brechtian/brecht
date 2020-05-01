@@ -4,14 +4,13 @@ import java.io.Closeable
 
 import akka.actor.ActorSystem
 import akka.dispatch.MessageDispatcher
-import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.{Done, NotUsed}
 import javax.sql.DataSource
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 
 class ChangeDataCapture
 
@@ -19,16 +18,55 @@ object ChangeDataCapture {
 
   private val logger = LoggerFactory.getLogger(classOf[ChangeDataCapture])
 
+  private def checkSlotExists(pg: PostgreSQL, settings: PgCdcSourceSettings)(
+      implicit ec: ExecutionContext
+  ): Future[Boolean] = Future {
+    pg.checkSlotExists(settings.slotName, settings.plugin)
+  }
+
+  private def createSlot(pg: PostgreSQL, settings: PgCdcSourceSettings)(
+      implicit ec: ExecutionContext
+  ): Future[Done] = Future {
+    pg.createSlot(settings.slotName, settings.plugin)
+    Done
+  }
+
+  private def dropSlotOnFinish(pg: PostgreSQL, settings: PgCdcSourceSettings)(
+      implicit ec: ExecutionContext
+  ): Future[Done] = {
+    settings.dropSlotOnFinish match {
+      case false => Future.successful(Done)
+      case true  => Future { pg.dropSlot(settings.slotName); Done }
+    }
+  }
+
+  private def closeDataSourceOnFinish(
+      dataSource: DataSource with Closeable,
+      settings: PgCdcSourceSettings
+  )(implicit ec: ExecutionContext): Future[Done] = {
+    settings.closeDataSourceOnFinish match {
+      case false => Future.successful(Done)
+      case true =>
+        Future {
+          logger.info("Closing data source")
+          dataSource.close()
+          Done
+        }
+    }
+  }
+
   private def createSlotIfNotExists(
       pg: PostgreSQL,
       settings: PgCdcSourceSettings
-  ): Unit = {
-    val slotExists = pg.checkSlotExists(settings.slotName, settings.plugin)
-    if (!slotExists && settings.createSlotOnStart)
-      pg.createSlot(settings.slotName, settings.plugin)
-  }
+  )(implicit ec: ExecutionContext): Future[Done] =
+    checkSlotExists(pg, settings)
+      .flatMap(exists =>
+        if ((!exists) && settings.createSlotOnStart)
+          createSlot(pg, settings)
+        else Future.successful(Done)
+      )
 
-  private def getAndParseChanges(
+  private def getChanges(
       pg: PostgreSQL,
       settings: PgCdcSourceSettings
   ): List[ChangeSet] = {
@@ -49,7 +87,7 @@ object ChangeDataCapture {
         lastSeenTransactionId = element.transactionId
         element :: Nil
       } else {
-        logger.debug("Already seen change set with transaction id {}", element.transactionId)
+        logger.debug("Already seen ChangeSet with this transaction id {}", element.transactionId)
         Nil
       }
     }
@@ -64,21 +102,16 @@ object ChangeDataCapture {
       implicit system: ActorSystem
   ): Source[ChangeSet, NotUsed] = {
 
-    implicit val ec: MessageDispatcher = system.dispatchers.lookup(id = ActorAttributes.IODispatcher.dispatcher)
+    val pg = new PostgreSQL(dataSource)
+
+    implicit val ec: MessageDispatcher = system.dispatchers.lookup(id = "cdc-blocking-io-dispatcher")
 
     Source
-      .unfoldResourceAsync[List[ChangeSet], (PostgreSQL, PgCdcSourceSettings)](
-        create = () =>
-          Future {
-            val pg = new PostgreSQL(dataSource)
-            createSlotIfNotExists(pg, settings)
-            (pg, settings)
-          },
-        read = s => {
-          val pg = s._1
-          val settings = s._2
+      .unfoldResourceAsync[List[ChangeSet], NotUsed](
+        create = () => createSlotIfNotExists(pg, settings).map(_ => NotUsed),
+        read = _ => {
           def f(): Future[Some[List[ChangeSet]]] = Future {
-            Some(getAndParseChanges(pg, settings))
+            Some(getChanges(pg, settings))
           }
           if (settings.pollInterval.toMillis != 0) {
             delayed(settings.pollInterval).flatMap(_ => f())
@@ -86,19 +119,9 @@ object ChangeDataCapture {
             f()
           }
         },
-        close = s => {
-          val pg = s._1
-          val settings = s._2
-          Future {
-            if (settings.dropSlotOnFinish) {
-              pg.dropSlot(settings.slotName)
-            }
-            if (settings.closeDataSourceOnFinish) {
-              logger.info("Closing data source")
-              dataSource.close()
-            }
-            Done
-          }
+        close = _ => {
+          dropSlotOnFinish(pg, settings)
+            .flatMap(_ => closeDataSourceOnFinish(dataSource, settings))
         }
       )
       .mapConcat(identity)
@@ -111,12 +134,16 @@ object ChangeDataCapture {
       system: ActorSystem
   ): Sink[AckLogSeqNum, NotUsed] = {
     val pg = PostgreSQL(dataSource)
-    implicit val ec: MessageDispatcher = system.dispatchers.lookup(id = ActorAttributes.IODispatcher.dispatcher)
+    implicit val ec: MessageDispatcher = system.dispatchers.lookup(id = "cdc-blocking-io-dispatcher")
     Flow[AckLogSeqNum]
       .groupedWithin(settings.maxItems, settings.maxItemsWait)
+      .wireTap(items => {
+        val lst = if (logger.isDebugEnabled()) items.map(_.logSeqNum).mkString(",") else null
+        logger.debug("List of unacknowledged lsns {}", lst)
+      })
       .mapAsyncUnordered(1) { items: Seq[AckLogSeqNum] =>
         Future {
-          pg.flush(settings.slotName, items.head.logSeqNum)
+          pg.flush(settings.slotName, items.last.logSeqNum)
         }
       }
       .to(Sink.ignore)
@@ -127,14 +154,18 @@ object ChangeDataCapture {
       system: ActorSystem
   ): Flow[(T, AckLogSeqNum), T, NotUsed] = {
     val pg = PostgreSQL(dataSource)
-    implicit val ec: MessageDispatcher = system.dispatchers.lookup(id = ActorAttributes.IODispatcher.dispatcher)
+    implicit val ec: MessageDispatcher = system.dispatchers.lookup(id = "cdc-blocking-io-dispatcher")
     Flow[(T, AckLogSeqNum)]
       .groupedWithin(settings.maxItems, settings.maxItemsWait)
+      .wireTap(items => {
+        val lst = if (logger.isDebugEnabled()) items.map(_._2.logSeqNum).mkString(",") else null
+        logger.debug("List of unacknowledged lsns {}", lst)
+      })
       .mapAsyncUnordered(1) { items: Seq[(T, AckLogSeqNum)] =>
         Future {
-          val headElem = items.head
-          val passThrough: T = headElem._1
-          val ackRequest = headElem._2
+          val lastElem: (T, AckLogSeqNum) = items.last
+          val passThrough: T = lastElem._1
+          val ackRequest = lastElem._2
           pg.flush(settings.slotName, ackRequest.logSeqNum)
           passThrough
         }

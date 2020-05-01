@@ -8,9 +8,8 @@ ThisBuild / Test / fork := true // specifies that all tests will be executed in 
 
 ThisBuild / organization := "com.flixdb"
 
-ThisBuild / publishTo := Some("io.cloudrepo" at "https://flixdb.mycloudrepo.io/repositories/cdc")
+ThisBuild / bintrayOrganization := Some("flixdb")
 
-ThisBuild / credentials += Credentials(Path.userHome / ".sbt" / ".credentials")
 
 lazy val scala213 = "2.13.1"
 lazy val scala212 = "2.12.10"
@@ -95,9 +94,11 @@ lazy val pb = (project in file("pb")).settings(
 lazy val cdc = {
   (project in file("cdc"))
     .settings(
+      bintrayRepository := "maven",
+      licenses += ("MIT", url("http://opensource.org/licenses/MIT")),
       crossScalaVersions := supportedScalaVersions,
       name := "cdc",
-      version := "0.1-ALPHA",
+      version := "0.1",
       libraryDependencies := Seq(
         slf4j,
         fastparse,

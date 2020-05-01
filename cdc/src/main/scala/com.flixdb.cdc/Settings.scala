@@ -68,6 +68,9 @@ final case class PgCdcSourceSettings(
   def withDropSlotOnFinish(dropSlotOnFinish: Boolean): PgCdcSourceSettings =
     copy(dropSlotOnFinish = dropSlotOnFinish)
 
+  def withCloseDataSourceOnFinish(closeDataSourceOnFinish: Boolean): PgCdcSourceSettings =
+    copy(closeDataSourceOnFinish = closeDataSourceOnFinish)
+
 }
 
 final case class PgCdcAckSettings(

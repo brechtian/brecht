@@ -38,6 +38,8 @@ abstract class PostgreSQLCapturerSpec
     c.setPassword("pguser")
     c.setMaximumPoolSize(2)
     c.setMinimumIdle(0)
+    c.setValidationTimeout(250)
+    c.setConnectionTimeout(400)
     c
   }
 

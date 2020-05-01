@@ -1,5 +1,7 @@
 ## FlixDb
 [![Build Status](https://travis-ci.com/flixdb/flixdb.svg?branch=master)](https://travis-ci.com/flixdb/flixdb)
+[![Gitter chat](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/flixdb/community "Gitter chat")
+
 
 FlixDb is an event store for DDD/CQRS/ES systems. Backed up by PostgreSQL, it seamlessly integrates with Apache Kafka.
 
