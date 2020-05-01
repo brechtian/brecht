@@ -4,8 +4,8 @@ import java.io.Closeable
 
 import akka.actor.ActorSystem
 import akka.dispatch.MessageDispatcher
+import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import akka.stream.{ActorAttributes, DelayOverflowStrategy}
 import akka.{Done, NotUsed}
 import javax.sql.DataSource
 import org.slf4j.LoggerFactory

@@ -97,7 +97,7 @@ lazy val cdc = {
     .settings(
       crossScalaVersions := supportedScalaVersions,
       name := "cdc",
-      version := "1.0",
+      version := "0.1-ALPHA",
       libraryDependencies := Seq(
         slf4j,
         fastparse,
