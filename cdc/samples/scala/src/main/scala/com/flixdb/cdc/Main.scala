@@ -40,7 +40,7 @@ object Main extends App {
   hikariDataSource.validate()
 
   val ackFlow: Flow[(Done, AckLogSeqNum), Done, NotUsed] = ChangeDataCapture.ackFlow[Done](hikariDataSource,
-    PgCdcAckSettings("cdc", 20, 5.seconds)
+    PgCdcAckSettings("cdc")
   )
 
   val source = ChangeDataCapture
@@ -48,8 +48,7 @@ object Main extends App {
       mode = Modes.Peek,
       dropSlotOnFinish = true,
       closeDataSourceOnFinish = true,
-      pollInterval = 500.milliseconds,
-      maxItems = 4
+      pollInterval = 500.milliseconds
     ))
 
   val killSwitch =
@@ -70,9 +69,9 @@ object Main extends App {
       .viaMat(KillSwitches.single)(Keep.right)
       .to(Sink.onComplete {
         case Failure(exception) =>
-          logger.debug("Failed", exception)
+          logger.debug("Failed!", exception)
         case Success(value) =>
-          logger.debug("Success")
+          logger.debug("Success!")
       }).run()
 
 
