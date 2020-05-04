@@ -14,7 +14,8 @@ object Dtos {
       data: String,
       stream: String,
       tags: List[String],
-      timestamp: Long
+      timestamp: Long,
+      snapshot: Boolean
   )
 
   final case class PostEvent(
@@ -33,7 +34,7 @@ object Dtos {
 
 trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
 
-  implicit object GetEventJsonWriter extends RootJsonWriter[Event] {
+  implicit object EventJsonWriter extends RootJsonWriter[Event] {
     override def write(ee: Event): JsValue =
       JsObject(
         "eventId" -> JsString(ee.eventId),
@@ -43,11 +44,12 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
         "data" -> ee.data.parseJson,
         "stream" -> JsString(ee.stream),
         "tags" -> JsArray(ee.tags.map(t => JsString(t)).toVector),
-        "timestamp" -> JsNumber(ee.timestamp)
+        "timestamp" -> JsNumber(ee.timestamp),
+        "snapshot" -> JsBoolean(ee.snapshot)
       )
   }
 
-  implicit object GetEventListJsonWriter extends RootJsonWriter[EventList] {
+  implicit object EventListJsonWriter extends RootJsonWriter[EventList] {
     override def write(obj: EventList): JsValue =
       JsArray(obj.events.map(_.toJson).toVector)
   }

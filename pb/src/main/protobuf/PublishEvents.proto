@@ -1,12 +1,25 @@
 syntax = "proto3";
-package com.flixdb.core.protobuf.PublishMsgs;
+package com.flixdb.core.protobuf.write;
+
+enum ErrorReason {
+  UNKNOWN = 0;
+  NAMESPACE_NOT_FOUND = 1;
+  TOO_MANY_REQUESTS = 2;
+  TIMEOUT = 3;
+  CONCURRENCY_CONFLICT = 4;
+}
+
+enum Result {
+  SUCCESS = 0;
+  ERROR = 1;
+}
 
 message PbEventEnvelope {
   string eventId = 1;
   string eventType = 2;
   int32 sequenceNum = 3;
   string data = 4;
-  repeated string tags = 6;
+  repeated string tags = 5;
 }
 
 message PbPublishEventsRequest {
@@ -17,17 +30,23 @@ message PbPublishEventsRequest {
 }
 
 message PbPublishEventsResult {
-  enum Result {
-    SUCCESS = 0;
-    ERROR = 1;
-  }
-  enum ErrorReason {
-    UNKNOWN = 0;
-    NAMESPACE_NOT_FOUND = 1;
-    TOO_MANY_REQUESTS = 2;
-    TIMEOUT = 3;
-    CONCURRENCY_CONFLICT = 4;
-  }
   Result result = 1;
   ErrorReason errorReason = 2;
 }
+
+message PbSnapshotRequest {
+  string namespace = 1;
+  string subStreamId = 2;
+  string stream = 3;
+  string eventId = 4;
+  string eventType = 5;
+  int32 sequenceNum = 6;
+  string data = 7;
+  repeated string tags = 8;
+}
+
+message PbSnapshotResult {
+  Result result = 1;
+  ErrorReason errorReason = 2;
+}
+

@@ -10,8 +10,14 @@ as soon as we are notified of a change to the data in the database). But more ge
 
 ## Note
 
-This module is part of FlixDb, but it can be used independently. The module is succesfully used internally by FlixDb to stream events from its
+This module is part of FlixDb, but it can be used independently. The module is used internally by FlixDb to stream events from its
 PostgreSQL backend to Kafka.
+
+## Roadmap
+
+This is under active development! Some items on our roadmap are: integrating with other streaming
+libraries (e.g., ZIO), providing a clean and friendly API for Java users and fans, adding monitoring capabilities (e.g., DropWizard metrics and dashboards for 
+Prometheus/Grafana users) and relentlessly refactoring and making the code better (e.g., using PGReplicationStream instead of the current approach).
 
 ## How it Works
 
@@ -19,7 +25,7 @@ This Akka Stream Source makes use of the "logical decoding" feature of PostgreSQ
 It uses the `test_decoding` plugin that comes pre-packaged with PostgreSQL. Enabling a logical replication slot
 in PostgreSQL requires very little configuration, and it generally has minimal performance overhead. However, please consult
 the PostgreSQL documentation to understand the performance implications: [the PostgreSQL documentation](https://www.postgresql.org/docs/10.4/static/logicaldecoding-example.html).
-**Note**: support for other decoding plugins (e.g., `wal2json`) is in the works.
+**Note**: we also support the `wal2json` [plugin](https://github.com/eulerto/wal2json). 
 
 ## Events Emitted
 
@@ -32,21 +38,20 @@ transaction id. A [Change]() can be one of the following:
 
 ## Artifacts
 
-The PostgreSQL JDBC driver is included in the main JAR.
 ```
-resolvers +=
-  "io.cloudrepo" at "https://flixdb.mycloudrepo.io/public/repositories/cdc"
-
+resolvers += Resolver.bintrayRepo("flixdb", "maven")
 libraryDependencies += "com.flixdb" %% "cdc" % "0.1"
 ```
 
+Note: We included the PostgreSQL JDBC driver in the main JAR.
+
 ### Reported Issues
-Feel free to use [Github]() not only to report issues but also to provide general feedback. You are also very welcome
+Feel free to use [Github](https://github.com/flixdb/flixdb/issues) not only to report issues but also to provide general feedback. You are also very welcome
 to discuss anything related to this module on the [Gitter]() channel. 
 
 ### Samples
 
-Sample applications are available (in Java as well as in Scala) at this link: [examples]().
+Sample applications are available at this link: [examples](https://github.com/flixdb/flixdb/tree/master/cdc/samples/). 
 
 ## Usage
 
@@ -75,25 +80,25 @@ anything. However, you will need to specify the slotName.
 
 [PgCdcSourceSettings]():
 
-| Setting           | Meaning                                       | Default      | Required |
-| ------------------|-----------------------------------------------|--------------|----------|
-| slotName          | Name of the logical replication slot          | null         | yes      |
-| createSlotOnStart | Create the logical replication slot on start  | true         | no       |
-| dropSlotOnFinish  | Drop the logical replication slot on stop     | false        | no       |
-| plugin            | Only one option as of now                     | TestDecoding | no       |
-| columnsToIgnore   | What columns to ignore per table. * syntax is supported: use it to ignore all columns in a table or all columns with a given name regardless of what table they are in | none | no |
-| mode              | Choose between "Get" (at most once) or  "Peek" (at least once). If you choose "Peek", you'll need the [Ack Sink] to acknowledge consumption of the event  | Get | no |
-| maxItems          | Maximum number of changes to pull in one go   | 128          | no           |
-| pollInterval      | Duration between polls                        | 2 seconds    | no           |
+| Setting                 | Meaning                                       | Default      | Required |
+| ------------------------|-----------------------------------------------|--------------|----------|
+| slotName                | Name of the logical replication slot          | null         | yes      |
+| createSlotOnStart       | Create the logical replication slot on start  | true         | no       |
+| dropSlotOnFinish        | Drop the logical replication slot on stop     | false        | no       |
+| closeDataSourceOnFinish | Close the data source when the stream stops   | false        | no       |
+| plugin                  | TestDecoding or Wal2Json                      | TestDecoding | no       |
+| columnsToIgnore         | What columns to ignore per table. * syntax is supported: use it to ignore all columns in a table or all columns with a given name regardless of what table they are in | none | no |
+| mode                    | Choose between "Get" (think "at most once") or  "Peek" (think "at least once"). If you choose "Peek", you'll need the [Ack Sink] to acknowledge consumption of the event  | Get | no |
+| maxItems                | Maximum number of changes to pull in one go   | 128          | no           |
+| pollInterval            | Duration between polls                        | 250 ms       | no           |
 
 Example source settings:
 
 Scala
 
 ```
-val changeDataCaptureSettings = PgCdcSourceSettings()]
-  .withSlotName("cdc")
-  .withCreateSlotOnStart(true) 
+val changeDataCaptureSettings = PgCdcSourceSettings(slotName = "cdc") 
+  .withCreateSlotOnStart(true)
   .withMode(Modes.Get)
   .withColumnsToIgnore(Map("images" -> List("binary"), "user_personal_information" -> List("*")))
   // ignore the binary column in the images table and ignore the user_personal_information table
@@ -108,9 +113,9 @@ implicit val system: ActorSystem = ActorSystem()
   
 val slotName = "slot_name"
 
-ChangeDataCapture
-  .source(hikariDataSource, PgCdcSourceSettings().withSlotName(slotName))
-  .log("postgresqlcdc", cs ⇒ s"Captured changes: ${cs.toString}")
+ChangeDataCapture()
+  .source(hikariDataSource, PgCdcSourceSettings(slotName))
+  .log("postgresqlcdc", cs => s"Captured changes: ${cs.toString}")
   .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
   .to(Sink.ignore)
   .run()
@@ -119,10 +124,10 @@ ChangeDataCapture
 
 ### Ack Sink Settings
 
-You'll only need an Ack Sink if you choose the "at least once" delivery mode.
+You'll only need an Ack Sink if you choose the Peek mode (think "at least once").
 
-To build a Sink we need a DataSource (e.g., HikariCP) and a [PgAckSinkSettings]() object.
-Our goal is to optimize the defaults of [PgAckSinkSettings]() so that for most use cases you'll never have to change
+To build a Sink we need a DataSource (e.g., HikariCP) and a [PgAckSettings]() object.
+Our goal is to optimize the defaults of [PgAckSettings]() so that for most use cases you'll never have to change
 anything. However, you'll need to specify the slotName. 
 
 
@@ -148,18 +153,18 @@ case class UserRegistered(id: String)
 
 val slotName = "slot_name"
 
-val source = ChangeDataCapture.source(hikariDataSource, PgCdcSourceSettings().withSlotName(slotName))
-val ackSink = ChangeDataCapture.ackSink(hikariDataSource, PgCdcAckSinkSettings().withSlotName(slotName))
+val source = ChangeDataCapture().source(hikariDataSource, PgCdcSourceSettings(slotName))
+val ackSink = ChangeDataCapture().ackSink(hikariDataSource, PgCdcAckSinkSettings(slotName))
 
 source
   .mapConcat(_.changes)
-  .collect { // collect is map and filter
-    case change @ RowInserted("public", "users", _, _, data) =>
+  .collect {
+    case change @ RowInserted("public", "users", _, _, data, _) =>
       val userId = data("user_id")
       (change, UserRegistered(userId))
   }
-  .map(identity) // do something useful e.g., publish to SQS
-  .map(t => AckLogSeqNum(t._1.commitLogSeqNum))
+  .map(???) // do something useful e.g., publish to SQS
+  .map(t => AckLogSeqNum(t._2.commitLogSeqNum))
   .to(ackSink) // acknowledge
   .run()
 
@@ -173,6 +178,7 @@ index added, change of column type, etc.).
 * When a row update is captured, the previous version of the row is lost / not available.
     * However, if the table has a non-default `REPLICA IDENTITY` setting this does not happen. To get the full previous version of the row: `ALTER TABLE "TABLE_NAME" REPLICA IDENTITY FULL`.
 * It doesn't work with older versions of PostgreSQL (i.e < 9.4).
+
 
 ## Important Notes
 

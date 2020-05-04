@@ -1,8 +1,8 @@
 package com.flixdb.core
 
-import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
-import com.flixdb.core.protobuf.GetMsgs.{PbGetEventsRequest, PbGetEventsResult}
-import com.flixdb.core.protobuf.PublishMsgs.{PbPublishEventsRequest, PbPublishEventsResult}
+import akka.actor._
+import com.flixdb.core.protobuf.read._
+import com.flixdb.core.protobuf.write._
 
 import scala.concurrent.Future
 
@@ -16,7 +16,6 @@ object EventStoreController extends ExtensionId[EventStoreControllerImpl] with E
 
 class EventStoreControllerImpl(system: ExtendedActorSystem) extends Extension {
 
-  // start change data capture stream to Kafka
   private val cdc = CdcStreamingToKafka(system)
   private val entitySharding = SubStreamSharding(system)
 

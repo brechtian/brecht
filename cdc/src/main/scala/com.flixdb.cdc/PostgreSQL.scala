@@ -1,7 +1,9 @@
 package com.flixdb.cdc
 
+import java.io.Closeable
 import java.sql.{Connection, PreparedStatement, ResultSet, Statement}
 
+import com.flixdb.cdc.scaladsl.{Mode, Modes, Plugin}
 import javax.sql.DataSource
 import org.slf4j.LoggerFactory
 
@@ -19,7 +21,7 @@ private[cdc] object PostgreSQL {
 
 }
 
-private[cdc] case class PostgreSQL(ds: DataSource) {
+private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
 
   import PostgreSQL._
 
@@ -43,7 +45,7 @@ private[cdc] case class PostgreSQL(ds: DataSource) {
       rs = getReplicationSlots.executeQuery()
 
       if (!rs.next()) {
-        log.info("logical replication slot with name {} does not exist", slotName)
+        log.info("Logical replication slot with name {} does not exist", slotName)
         false
       } else {
         val database = rs.getString("database")
@@ -51,13 +53,13 @@ private[cdc] case class PostgreSQL(ds: DataSource) {
         foundPlugin match {
           case plugin.name =>
             log.info(
-              "found logical replication slot with name {} for database {} using {} plugin",
+              "Found logical replication slot with name {} for database {} using {} plugin",
               slotName,
               database,
               plugin.name
             )
           case _ =>
-            log.warn("improper plugin configuration for slot with name {}", slotName)
+            log.warn("Improper plugin configuration for slot with name {}", slotName)
         }
         true
       }
@@ -79,7 +81,7 @@ private[cdc] case class PostgreSQL(ds: DataSource) {
 
     try {
       conn = getConnection
-      log.info("setting up logical replication slot {}", slotName)
+      log.info("Setting up logical replication slot {}", slotName)
       stmt = conn.prepareStatement(s"SELECT * FROM pg_create_logical_replication_slot(?, ?)")
       stmt.setString(1, slotName)
       stmt.setString(2, plugin.name)
@@ -100,8 +102,8 @@ private[cdc] case class PostgreSQL(ds: DataSource) {
 
     try {
       conn = getConnection
-      log.info("dropping logical replication slot {}", slotName)
-      stmt = conn.prepareStatement(s"SELECT * FROM pg_drop_logical_replication_slot(?)")
+      log.info("Dropping logical replication slot {}", slotName)
+      stmt = conn.prepareStatement(s"SELECT * FROM pg_drop_replication_slot(?)")
       stmt.setString(1, slotName)
       stmt.execute()
     } catch {
@@ -137,13 +139,14 @@ private[cdc] case class PostgreSQL(ds: DataSource) {
 
     try {
       conn = getConnection
-      statement = conn.prepareStatement("SELECT 1 FROM pg_logical_slot_get_changes(?,?, NULL)")
+      statement = conn.prepareStatement(s"SELECT 1 FROM pg_logical_slot_get_changes(?,'${upToLogSeqNum}', NULL)")
       statement.setString(1, slotName)
-      statement.setString(2, upToLogSeqNum)
       statement.execute()
+      log.debug("Acknowledged {}", upToLogSeqNum)
     } catch {
       case NonFatal(e) =>
         log.error("Failed to flush", e)
+        throw e
     } finally {
       attemptCloseStatement(statement)
       attemptCloseConnection(conn)
@@ -172,7 +175,7 @@ private[cdc] case class PostgreSQL(ds: DataSource) {
         result += SlotChange(transactionId, location, data)
       }
       pullChangesStatement.close()
-      log.debug("Captured {} changes", result.size.toString)
+      log.debug("Pulled down {} rows", result.size.toString)
       result.toList
     } catch {
       case NonFatal(e) =>

@@ -8,9 +8,7 @@ ThisBuild / Test / fork := true // specifies that all tests will be executed in 
 
 ThisBuild / organization := "com.flixdb"
 
-ThisBuild / publishTo := Some("io.cloudrepo" at "https://flixdb.mycloudrepo.io/repositories/cdc")
-
-ThisBuild / credentials += Credentials(Path.userHome / ".sbt" / ".credentials")
+ThisBuild / bintrayOrganization := Some("flixdb")
 
 lazy val scala213 = "2.13.1"
 lazy val scala212 = "2.12.10"
@@ -42,7 +40,7 @@ val akkaStreamTestKit = "com.typesafe.akka" %% "akka-stream-testkit" % "2.6.4"
 val scalaTest = "org.scalatest" %% "scalatest" % "3.1.1"
 val testcontainers = "org.testcontainers" % "testcontainers" % "1.14.1"
 val testContainersKafka = "org.testcontainers" % "kafka" % "1.12.4"
-
+val simulacrum = "org.typelevel" %% "simulacrum" % "1.0.0"
 
 lazy val root = (project in file("."))
   .aggregate(core, pb, cdc)
@@ -54,6 +52,7 @@ lazy val root = (project in file("."))
 lazy val core = {
   (project in file("core"))
     .settings(
+      scalacOptions += "-Ymacro-annotations",
       crossScalaVersions := Nil,
       publish / skip := true,
       name := "core",
@@ -73,6 +72,7 @@ lazy val core = {
         akkaClusterSharding,
         postgreSQLDriver,
         hikariCP,
+        simulacrum,
         scalaTest % Test,
         testContainersKafka % Test,
         akkaStreamTestKit % Test,
@@ -93,12 +93,15 @@ lazy val pb = (project in file("pb")).settings(
 lazy val cdc = {
   (project in file("cdc"))
     .settings(
+      bintrayRepository := "maven",
+      licenses += ("MIT", url("http://opensource.org/licenses/MIT")),
       crossScalaVersions := supportedScalaVersions,
       name := "cdc",
-      version := "0.1",
+      version := "0.1-SNAPSHOT",
       libraryDependencies := Seq(
         slf4j,
         fastparse,
+        sprayJson,
         akkaStream,
         postgreSQLDriver,
         akkaSlf4j % Test,

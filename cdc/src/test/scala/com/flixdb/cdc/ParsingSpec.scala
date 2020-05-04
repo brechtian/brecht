@@ -2,6 +2,7 @@ package com.flixdb.cdc
 
 import java.time.{LocalDate, LocalTime, ZoneId, ZonedDateTime}
 
+import com.flixdb.cdc.scaladsl.RowUpdated
 import fastparse.{Parsed, _}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers

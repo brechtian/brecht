@@ -1,4 +1,4 @@
-package com.flixdb.cdc
+package com.flixdb.cdc.scaladsl
 
 import scala.concurrent.duration._
 
@@ -24,6 +24,10 @@ object Plugins {
     override val name = "test_decoding"
   }
 
+  final case object Wal2Json extends Plugin {
+    override val name = "wal2json"
+  }
+
 }
 
 /** Settings for the PostgreSQL CDC source
@@ -32,20 +36,22 @@ object Plugins {
   * @param slotName Name of the logical decoding slot
   * @param createSlotOnStart Create logical decoding slot when the source starts (if it doesn't already exist...)
   * @param dropSlotOnFinish Drop the logical decoding slot when the source stops
+  * @param closeDataSourceOnFinish Closes the data source when the stream stops
   * @param plugin Plugin to use. Only "test_decoding" supported right now.
   * @param columnsToIgnore Columns to ignore
   * @param maxItems Specifies how many rows are fetched in one batch
-  * @param pollInterval Duration between polls
+  * @param pollInterval Roughly "duration between polls"
   */
 final case class PgCdcSourceSettings(
     mode: Mode = Modes.Get,
-    slotName: String = null,
+    slotName: String,
     createSlotOnStart: Boolean = true,
     dropSlotOnFinish: Boolean = false,
+    closeDataSourceOnFinish: Boolean = false,
     plugin: Plugin = Plugins.TestDecoding,
     columnsToIgnore: Map[String, List[String]] = Map(),
     maxItems: Int = 128,
-    pollInterval: FiniteDuration = 2000.milliseconds
+    pollInterval: FiniteDuration = 250.milliseconds
 ) {
 
   def withMode(mode: Mode): PgCdcSourceSettings =
@@ -66,17 +72,20 @@ final case class PgCdcSourceSettings(
   def withDropSlotOnFinish(dropSlotOnFinish: Boolean): PgCdcSourceSettings =
     copy(dropSlotOnFinish = dropSlotOnFinish)
 
+  def withCloseDataSourceOnFinish(closeDataSourceOnFinish: Boolean): PgCdcSourceSettings =
+    copy(closeDataSourceOnFinish = closeDataSourceOnFinish)
+
 }
 
-final case class PgCdcAckSinkSettings(
+final case class PgCdcAckSettings(
     slotName: String,
     maxItems: Int = 16,
     maxItemsWait: FiniteDuration = 3000.milliseconds
 ) {
 
-  def withMaxItemsWait(maxItemsWait: FiniteDuration): PgCdcAckSinkSettings =
+  def withMaxItemsWait(maxItemsWait: FiniteDuration): PgCdcAckSettings =
     copy(maxItemsWait = maxItemsWait)
 
-  def withMaxItems(maxItems: Int): PgCdcAckSinkSettings = copy(maxItems = maxItems)
+  def withMaxItems(maxItems: Int): PgCdcAckSettings = copy(maxItems = maxItems)
 
 }

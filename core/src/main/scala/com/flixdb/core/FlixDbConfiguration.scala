@@ -15,9 +15,8 @@ class FlixDbConfigurationImpl(actorSystem: ExtendedActorSystem) extends Extensio
 
   private val config = actorSystem.settings.config.getConfig("flixdb")
 
-  val cdcKafkaStreamName = config.getString("change-data-capture-stream-name")
-
   val requestQueueSize = config.getInt("request-queue-size")
 
+  val defaultNamespace = config.getString("default-namespace")
 
 }

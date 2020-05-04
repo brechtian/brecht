@@ -1,5 +1,16 @@
 syntax = "proto3";
-package com.flixdb.core.protobuf.GetMsgs;
+package com.flixdb.core.protobuf.read;
+
+enum Result {
+  SUCCESS = 0;
+  ERROR = 1;
+}
+enum ErrorReason {
+  UNKNOWN = 0;
+  NAMESPACE_NOT_FOUND = 1;
+  TOO_MANY_REQUESTS = 2;
+  TIMEOUT = 3;
+}
 
 message PbEventEnvelope {
   string eventId = 1;
@@ -19,18 +30,7 @@ message PbGetEventsRequest {
 }
 
 message PbGetEventsResult {
-  enum Result {
-    SUCCESS = 0;
-    ERROR = 1;
-  }
-  enum ErrorReason {
-    UNKNOWN = 0;
-    NAMESPACE_NOT_FOUND = 1;
-    TOO_MANY_REQUESTS = 2;
-    TIMEOUT = 3;
-  }
   Result result = 1;
   ErrorReason errorReason = 2;
   repeated PbEventEnvelope eventEnvelopes = 3;
-
 }
