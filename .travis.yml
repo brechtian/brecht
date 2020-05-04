@@ -30,7 +30,7 @@ before_cache:
 script:
   - cd containers && ./build.sh && cd ..
   - sbt "project cdc;+test"
-  - sbt "project cdc;+publishLoca"
+  - sbt "project cdc;+publishLocal"
   - sbt "project core;test"
   - cd cdc/samples/scala
   - sbt compile
