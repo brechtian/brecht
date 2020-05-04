@@ -3,6 +3,7 @@ package com.flixdb.cdc
 import java.io.Closeable
 import java.sql.{Connection, PreparedStatement, ResultSet, Statement}
 
+import com.flixdb.cdc.scaladsl.{Mode, Modes, Plugin}
 import javax.sql.DataSource
 import org.slf4j.LoggerFactory
 

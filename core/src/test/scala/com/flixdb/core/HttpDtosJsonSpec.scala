@@ -33,7 +33,7 @@ class HttpDtosJsonSpec extends JsonSupport with AnyFunSuiteLike with BeforeAndAf
     json.getFields("timestamp") shouldBe Seq(JsNumber(42))
     json.getFields("data") shouldBe an[Seq[JsObject]]
     json.getFields("data").head.asJsObject.getFields("owner") shouldBe Seq(JsString("John Smith"))
-    json.getFields("snapshot").head shouldBe Seq(JsBoolean(false))
+    json.getFields("snapshot").head shouldBe JsBoolean(false)
   }
 
   test("Deserializing json into 'PostEvent'") {

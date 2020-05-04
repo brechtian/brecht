@@ -259,8 +259,8 @@ trait FakeDb {
     deleteSt.close()
   }
 
-  def setUpLogicalDecodingSlot(conn: Connection, slotName: String): Unit = {
-    val stmt = conn.prepareStatement(s"SELECT * FROM pg_create_logical_replication_slot('$slotName','test_decoding')")
+  def setUpLogicalDecodingSlot(conn: Connection, slotName: String, pluginName: String): Unit = {
+    val stmt = conn.prepareStatement(s"SELECT * FROM pg_create_logical_replication_slot('$slotName','${pluginName}')")
     stmt.execute()
     stmt.close()
   }

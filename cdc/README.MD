@@ -10,14 +10,14 @@ as soon as we are notified of a change to the data in the database). But more ge
 
 ## Note
 
-This module is part of FlixDb, but it can be used independently. The module is succesfully used internally by FlixDb to stream events from its
+This module is part of FlixDb, but it can be used independently. The module is used internally by FlixDb to stream events from its
 PostgreSQL backend to Kafka.
 
 ## Roadmap
 
-This is under active development! Some items on our roadmap are: integration with other streaming
-libraries (e.g., ZIO), supporting the `wal2json` plugin, using PGReplicationStream instead
-of the current approach and adding monitoring capabilities (i.e. Prometheus/Grafana). 
+This is under active development! Some items on our roadmap are: integrating with other streaming
+libraries (e.g., ZIO), providing a clean and friendly API for Java users and fans, adding monitoring capabilities (e.g., DropWizard metrics and dashboards for 
+Prometheus/Grafana users) and relentlessly refactoring and making the code better (e.g., using PGReplicationStream instead of the current approach).
 
 ## How it Works
 
@@ -25,7 +25,7 @@ This Akka Stream Source makes use of the "logical decoding" feature of PostgreSQ
 It uses the `test_decoding` plugin that comes pre-packaged with PostgreSQL. Enabling a logical replication slot
 in PostgreSQL requires very little configuration, and it generally has minimal performance overhead. However, please consult
 the PostgreSQL documentation to understand the performance implications: [the PostgreSQL documentation](https://www.postgresql.org/docs/10.4/static/logicaldecoding-example.html).
-**Note**: support for other decoding plugins (e.g., `wal2json`) is in the works.
+**Note**: we also support the `wal2json` [plugin](https://github.com/eulerto/wal2json). 
 
 ## Events Emitted
 
@@ -43,7 +43,7 @@ resolvers += Resolver.bintrayRepo("flixdb", "maven")
 libraryDependencies += "com.flixdb" %% "cdc" % "0.1"
 ```
 
-Note: The PostgreSQL JDBC driver is included in the main JAR.
+Note: We included the PostgreSQL JDBC driver in the main JAR.
 
 ### Reported Issues
 Feel free to use [Github](https://github.com/flixdb/flixdb/issues) not only to report issues but also to provide general feedback. You are also very welcome
@@ -86,7 +86,7 @@ anything. However, you will need to specify the slotName.
 | createSlotOnStart       | Create the logical replication slot on start  | true         | no       |
 | dropSlotOnFinish        | Drop the logical replication slot on stop     | false        | no       |
 | closeDataSourceOnFinish | Close the data source when the stream stops   | false        | no       |
-| plugin                  | Only one option as of now                     | TestDecoding | no       |
+| plugin                  | TestDecoding or Wal2Json                      | TestDecoding | no       |
 | columnsToIgnore         | What columns to ignore per table. * syntax is supported: use it to ignore all columns in a table or all columns with a given name regardless of what table they are in | none | no |
 | mode                    | Choose between "Get" (think "at most once") or  "Peek" (think "at least once"). If you choose "Peek", you'll need the [Ack Sink] to acknowledge consumption of the event  | Get | no |
 | maxItems                | Maximum number of changes to pull in one go   | 128          | no           |
@@ -113,7 +113,7 @@ implicit val system: ActorSystem = ActorSystem()
   
 val slotName = "slot_name"
 
-ChangeDataCapture
+ChangeDataCapture()
   .source(hikariDataSource, PgCdcSourceSettings(slotName))
   .log("postgresqlcdc", cs => s"Captured changes: ${cs.toString}")
   .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -153,8 +153,8 @@ case class UserRegistered(id: String)
 
 val slotName = "slot_name"
 
-val source = ChangeDataCapture.source(hikariDataSource, PgCdcSourceSettings(slotName))
-val ackSink = ChangeDataCapture.ackSink(hikariDataSource, PgCdcAckSinkSettings(slotName))
+val source = ChangeDataCapture().source(hikariDataSource, PgCdcSourceSettings(slotName))
+val ackSink = ChangeDataCapture().ackSink(hikariDataSource, PgCdcAckSinkSettings(slotName))
 
 source
   .mapConcat(_.changes)
@@ -178,6 +178,7 @@ index added, change of column type, etc.).
 * When a row update is captured, the previous version of the row is lost / not available.
     * However, if the table has a non-default `REPLICA IDENTITY` setting this does not happen. To get the full previous version of the row: `ALTER TABLE "TABLE_NAME" REPLICA IDENTITY FULL`.
 * It doesn't work with older versions of PostgreSQL (i.e < 9.4).
+
 
 ## Important Notes
 

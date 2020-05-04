@@ -1,4 +1,4 @@
-package com.flixdb.cdc
+package com.flixdb.cdc.scaladsl
 
 import scala.concurrent.duration._
 
@@ -22,6 +22,10 @@ object Plugins {
 
   final case object TestDecoding extends Plugin {
     override val name = "test_decoding"
+  }
+
+  final case object Wal2Json extends Plugin {
+    override val name = "wal2json"
   }
 
 }

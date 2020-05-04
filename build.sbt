@@ -10,7 +10,6 @@ ThisBuild / organization := "com.flixdb"
 
 ThisBuild / bintrayOrganization := Some("flixdb")
 
-
 lazy val scala213 = "2.13.1"
 lazy val scala212 = "2.12.10"
 lazy val supportedScalaVersions = List(scala213, scala212)
@@ -98,10 +97,11 @@ lazy val cdc = {
       licenses += ("MIT", url("http://opensource.org/licenses/MIT")),
       crossScalaVersions := supportedScalaVersions,
       name := "cdc",
-      version := "0.1",
+      version := "0.1-SNAPSHOT",
       libraryDependencies := Seq(
         slf4j,
         fastparse,
+        sprayJson,
         akkaStream,
         postgreSQLDriver,
         akkaSlf4j % Test,

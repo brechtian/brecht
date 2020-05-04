@@ -3,6 +3,7 @@ package com.flixdb.cdc
 import java.time._
 
 import com.flixdb.cdc.PostgreSQL.SlotChange
+import com.flixdb.cdc.scaladsl.{Change, ChangeSet, RowDeleted, RowInserted, RowUpdated}
 import fastparse.NoWhitespace._
 import fastparse._
 import org.slf4j.LoggerFactory
@@ -11,7 +12,7 @@ import scala.collection.mutable.ArrayBuffer
 
 private[cdc] case class TestDecodingPlugin()
 
-private[cdc] object TestDecodingPlugin {
+private[cdc] object TestDecodingPlugin extends LogDecodPlugin  {
 
   private val log = LoggerFactory.getLogger(classOf[TestDecodingPlugin])
 
@@ -233,7 +234,7 @@ private[cdc] object TestDecodingPlugin {
     ChangeSet(transactionId, slotChanges.last.location, instant, result.toList)
   }
 
-  def transformSlotChanges(
+  override def transformSlotChanges(
       slotChanges: List[SlotChange],
       colsToIgnorePerTable: Map[String, List[String]]
   ): List[ChangeSet] =

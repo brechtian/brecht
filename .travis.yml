@@ -28,7 +28,12 @@ before_cache:
 
 
 script:
+  - export INIT_DIR=`pwd`
+  - cd containers
+  - ./build.sh
+  - cd $INIT_DIR
   - sbt "project cdc;+test"
   - sbt "project core;test"
   - cd cdc/samples/scala
   - sbt compile
+  - cd $INIT_DIR

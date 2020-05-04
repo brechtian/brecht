@@ -8,7 +8,7 @@ import akka.kafka.scaladsl.Producer
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.util.Timeout
-import com.flixdb.cdc._
+import com.flixdb.cdc.scaladsl._
 import com.flixdb.core.KafkaEventEnvelope._
 import com.flixdb.core.protobuf.CdcActor._
 import com.zaxxer.hikari.HikariDataSource
@@ -105,11 +105,11 @@ class CdcActor extends Actor with ActorLogging {
     Producer.flexiFlow[String, String, RowInserted](producerSettings)
   }
 
-  def ackFlow(dataSource: HikariDataSource): Flow[(Done, AckLogSeqNum), Done, NotUsed] =
-    ChangeDataCapture.ackFlow[Done](dataSource, PgCdcAckSettings(slotName))
+  def ackFlow(dataSource: HikariDataSource): Flow[(Done, AckLogSeqNum), (Done, AckLogSeqNum), NotUsed] =
+    ChangeDataCapture().ackFlow[Done](dataSource, PgCdcAckSettings(slotName))
 
   def stream(dataSource: HikariDataSource) =
-    ChangeDataCapture
+    ChangeDataCapture()
       .source(
         dataSource,
         PgCdcSourceSettings(slotName = "scalatest")

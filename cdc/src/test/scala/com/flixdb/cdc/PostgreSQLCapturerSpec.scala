@@ -5,12 +5,12 @@ import akka.event.Logging
 import akka.stream.Attributes
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.{ImplicitSender, TestKit}
+import com.flixdb.cdc.scaladsl._
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatest.{BeforeAndAfterAll, matchers}
 import org.testcontainers.containers.GenericContainer
-import org.testcontainers.containers.wait.Wait
 
 abstract class PostgreSQLCapturerSpec
     extends TestKit(ActorSystem())
@@ -28,14 +28,20 @@ abstract class PostgreSQLCapturerSpec
 
   val container: GenericContainer[_]
 
+  def plugin: Plugin
+
+  def userName: String
+  def password: String
+  def database: String
+
   lazy val cfg: HikariConfig = {
     val c = new HikariConfig
     c.setDriverClassName(classOf[org.postgresql.Driver].getName)
-    val url = s"jdbc:postgresql://${container.getContainerIpAddress}:${container.getMappedPort(5432)}/postgres"
+    val url = s"jdbc:postgresql://${container.getContainerIpAddress}:${container.getMappedPort(5432)}/${database}"
     log.info("JdbcUrl is {}", url)
     c.setJdbcUrl(url)
-    c.setUsername("pguser")
-    c.setPassword("pguser")
+    c.setUsername(userName)
+    c.setPassword(password)
     c.setMaximumPoolSize(2)
     c.setMinimumIdle(0)
     c.setValidationTimeout(250)
@@ -91,7 +97,7 @@ abstract class PostgreSQLCapturerSpec
 
     "capture changes to a table with numeric / character / array columns" in {
 
-      setUpLogicalDecodingSlot(conn, "scalatest_1")
+      setUpLogicalDecodingSlot(conn, "scalatest_1", plugin.name)
 
       log.info("inserting data into customers table")
       // some inserts
@@ -145,10 +151,15 @@ abstract class PostgreSQLCapturerSpec
 
       val dataSource = new HikariDataSource(cfg)
 
-      ChangeDataCapture
+      ChangeDataCapture()
         .source(
           dataSource,
-          PgCdcSourceSettings(slotName = "scalatest_1", dropSlotOnFinish = true, closeDataSourceOnFinish = true)
+          PgCdcSourceSettings(
+            slotName = "scalatest_1",
+            dropSlotOnFinish = true,
+            closeDataSourceOnFinish = true,
+            plugin = this.plugin
+          )
         )
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
         .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -197,7 +208,7 @@ abstract class PostgreSQLCapturerSpec
         }
         // expecting the update events next
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, `emptyData`, _, _) :: Nil)
+          case c @ ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, _, _, _) :: Nil)
               if Map(
                 "id" -> "0",
                 "first_name" -> "John",
@@ -207,7 +218,7 @@ abstract class PostgreSQLCapturerSpec
               ) == dataNew => // success
         }
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, `emptyData`, _, _) :: Nil)
+          case c @ ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, _, _, _) :: Nil)
               if Map(
                 "id" -> "1",
                 "first_name" -> "George",
@@ -217,7 +228,7 @@ abstract class PostgreSQLCapturerSpec
               ) == dataNew => // success
         }
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, `emptyData`, _, _) :: Nil)
+          case c @ ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, _, _, _) :: Nil)
               if Map(
                 "id" -> "2",
                 "first_name" -> "Paul",
@@ -228,7 +239,7 @@ abstract class PostgreSQLCapturerSpec
 
         }
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, `emptyData`, _, _) :: Nil)
+          case c @ ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, _, _, _) :: Nil)
               if Map(
                 "id" -> "3",
                 "first_name" -> "Ringo",
@@ -253,7 +264,8 @@ abstract class PostgreSQLCapturerSpec
 
     "capture changes to a table with jsonb columns" in {
 
-      setUpLogicalDecodingSlot(conn, "scalatest_2")
+      setUpLogicalDecodingSlot(conn, "scalatest_2", plugin.name)
+
       val dataSource = new HikariDataSource(cfg)
 
       insertSale(conn, id = 0, info = """{"name": "alpaca", "countries": ["Peru", "Bolivia", "Ecuador", "Chile"]}""")
@@ -262,10 +274,15 @@ abstract class PostgreSQLCapturerSpec
 
       import scala.concurrent.duration._
 
-      ChangeDataCapture
+      ChangeDataCapture()
         .source(
           dataSource,
-          PgCdcSourceSettings(slotName = "scalatest_2", closeDataSourceOnFinish = true, dropSlotOnFinish = true)
+          PgCdcSourceSettings(
+            slotName = "scalatest_2",
+            closeDataSourceOnFinish = true,
+            dropSlotOnFinish = true,
+            plugin = this.plugin
+          )
         )
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
@@ -301,7 +318,8 @@ abstract class PostgreSQLCapturerSpec
 
     "capture changes to a table with xml columns" in {
 
-      setUpLogicalDecodingSlot(conn, "scalatest_3")
+      setUpLogicalDecodingSlot(conn, "scalatest_3", plugin.name)
+
       val dataSource = new HikariDataSource(cfg)
 
       val xml = // from: https://msdn.microsoft.com/en-us/library/ms256129(v=vs.110).aspx
@@ -342,10 +360,15 @@ abstract class PostgreSQLCapturerSpec
 
       deletePurchaseOrder(conn, id = 0)
 
-      ChangeDataCapture
+      ChangeDataCapture()
         .source(
           dataSource,
-          PgCdcSourceSettings(slotName = "scalatest_3", dropSlotOnFinish = true, closeDataSourceOnFinish = true)
+          PgCdcSourceSettings(
+            slotName = "scalatest_3",
+            dropSlotOnFinish = true,
+            closeDataSourceOnFinish = true,
+            plugin = this.plugin
+          )
         )
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
@@ -368,7 +391,8 @@ abstract class PostgreSQLCapturerSpec
 
     "be able to deal with bytea columns" in {
 
-      setUpLogicalDecodingSlot(conn, "scalatest_4")
+      setUpLogicalDecodingSlot(conn, "scalatest_4", plugin.name)
+
       val dataSource = new HikariDataSource(cfg)
 
       val expectedByteArray: Array[Byte] = {
@@ -381,10 +405,15 @@ abstract class PostgreSQLCapturerSpec
 
       import javax.xml.bind.DatatypeConverter // this has a parseHexBinary method that turns out to be useful here
 
-      ChangeDataCapture
+      ChangeDataCapture()
         .source(
           dataSource,
-          PgCdcSourceSettings(slotName = "scalatest_4", dropSlotOnFinish = true, closeDataSourceOnFinish = true)
+          PgCdcSourceSettings(
+            slotName = "scalatest_4",
+            dropSlotOnFinish = true,
+            closeDataSourceOnFinish = true,
+            plugin = this.plugin
+          )
         )
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
@@ -395,7 +424,10 @@ abstract class PostgreSQLCapturerSpec
           case RowInserted("public", "images", _, _, data, _)
               // from PG docs: The "hex" format encodes binary data as 2 hexadecimal digits per byte, most significant nibble first.
               // The entire string is preceded by the sequence \x
-              if DatatypeConverter.parseHexBinary(data("image").substring(2)) sameElements expectedByteArray => // success
+              // NOTE: some inconsistency between the Wal2Plugin and the TestDecoding plugin here.
+              // I think that the Wal2Json plugin, takes out the \x prefix
+              if (DatatypeConverter.parseHexBinary(data("image").substring(2)) sameElements expectedByteArray) || (DatatypeConverter
+                .parseHexBinary(data("image")) sameElements expectedByteArray) => // success
         }
         .expectNextChainingPF {
           case RowDeleted("public", "images", _, _, _, _) => // success
@@ -410,17 +442,23 @@ abstract class PostgreSQLCapturerSpec
 
     "be able to deal with null columns" in {
 
-      setUpLogicalDecodingSlot(conn, "scalatest_5")
+      setUpLogicalDecodingSlot(conn, "scalatest_5", plugin.name)
+
       val dataSource = new HikariDataSource(cfg)
 
       insertEmployee(conn, 0, "Giovanni", "employee")
       updateEmployee(conn, 0, null)
       deleteEmployees(conn)
 
-      ChangeDataCapture
+      ChangeDataCapture()
         .source(
           dataSource,
-          PgCdcSourceSettings(slotName = "scalatest_5", dropSlotOnFinish = true, closeDataSourceOnFinish = true)
+          PgCdcSourceSettings(
+            slotName = "scalatest_5",
+            dropSlotOnFinish = true,
+            closeDataSourceOnFinish = true,
+            plugin = this.plugin
+          )
         )
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
@@ -431,7 +469,9 @@ abstract class PostgreSQLCapturerSpec
           case RowInserted("public", "employees", _, _, _, _) => // success
         }
         .expectNextChainingPF {
-          case RowUpdated("public", "employees", _, _, data, _, _, _) if data("\"position\"") == "null" => // success
+          case RowUpdated("public", "employees", _, _, data, _, _, _)
+              // TODO: fix inconsistency between plugins: "COLUMN_NAME" vs just COLUMN_NAME
+              if data.get("\"position\"").contains("null") || data.get("position").contains("null") => // success
         }
         .expectNextChainingPF {
           case RowDeleted("public", "employees", _, _, _, _) => // success
@@ -446,17 +486,23 @@ abstract class PostgreSQLCapturerSpec
 
     "be able to get both old version / new version of a row - in case of an update operation on a table with replica identity set to full" in {
 
-      setUpLogicalDecodingSlot(conn, "scalatest_6")
+      setUpLogicalDecodingSlot(conn, "scalatest_6", plugin.name)
+
       val dataSource = new HikariDataSource(cfg)
 
       insertWeather(conn, 0, "Seattle", "rainy")
       updateWeather(conn, 0, "sunny")
       deleteWeathers(conn)
 
-      ChangeDataCapture
+      ChangeDataCapture()
         .source(
           dataSource,
-          PgCdcSourceSettings(slotName = "scalatest_6", dropSlotOnFinish = true, closeDataSourceOnFinish = true)
+          PgCdcSourceSettings(
+            slotName = "scalatest_6",
+            dropSlotOnFinish = true,
+            closeDataSourceOnFinish = true,
+            plugin = this.plugin
+          )
         )
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
@@ -464,10 +510,12 @@ abstract class PostgreSQLCapturerSpec
         .runWith(TestSink.probe[Change])
         .request(3)
         .expectNextChainingPF {
-          case RowInserted("public", """"WEATHER"""", _, _, _, _) => // success
+          case RowInserted("public", tableName, _, _, _, _)
+              if (tableName == """"WEATHER"""" || tableName == "WEATHER") => // success
+          // TODO: fix inconsistency between plugins: "COLUMN_NAME" vs just COLUMN_NAME
         }
         .expectNextChainingPF {
-          case RowUpdated("public", """"WEATHER"""", _, _, dataNew, dataOld, _, _)
+          case RowUpdated("public", _, _, _, dataNew, dataOld, _, _)
               if (dataNew -> dataOld) == (Map("id" -> "0", "city" -> "Seattle", "weather" -> "sunny") ->
                 Map("id" -> "0", "city" -> "Seattle", "weather" -> "rainy")) => // success
         }
@@ -484,7 +532,8 @@ abstract class PostgreSQLCapturerSpec
 
     "be able to ignore tables and columns" in {
 
-      setUpLogicalDecodingSlot(conn, "scalatest_7")
+      setUpLogicalDecodingSlot(conn, "scalatest_7", plugin.name)
+
       val dataSource = new HikariDataSource(cfg)
 
       // employees (ignored)
@@ -497,11 +546,15 @@ abstract class PostgreSQLCapturerSpec
       updateSale(conn, id = 0, newInfo = """{"name": "alpakka", "countries": ["*"]}""")
       deleteSale(conn, 0)
 
-      ChangeDataCapture
+      ChangeDataCapture()
         .source(
           dataSource,
-          PgCdcSourceSettings(slotName = "scalatest_7", dropSlotOnFinish = true, closeDataSourceOnFinish = true)
-            .withColumnsToIgnore(Map("employees" -> List("*"), "sales" -> List("info")))
+          PgCdcSourceSettings(
+            slotName = "scalatest_7",
+            dropSlotOnFinish = true,
+            closeDataSourceOnFinish = true,
+            plugin = this.plugin
+          ).withColumnsToIgnore(Map("employees" -> List("*"), "sales" -> List("info")))
         )
         .mapConcat(_.changes)
         .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
@@ -527,34 +580,4 @@ abstract class PostgreSQLCapturerSpec
 
   }
 
-}
-
-abstract class PostgreSQLImageName extends PostgreSQLCapturerSpec {
-  def imageName: String
-  override val container: GenericContainer[_] = {
-    val container =
-      new GenericContainer(
-        imageName
-      )
-    container.waitingFor(Wait.forLogMessage(".*ready to accept connections.*\\n", 1))
-    container.addExposedPort(5432)
-    container.start()
-    container
-  }
-}
-
-class ChangeDataCapturePostgreSQLVersion104 extends PostgreSQLImageName {
-  override def imageName = "sebastianharko/postgres104:latest"
-}
-
-class ChangeDataCapturePostgreSQLVersion96 extends PostgreSQLImageName {
-  override def imageName = "sebastianharko/postgres96:latest"
-}
-
-class ChangeDataCapturePostgreSQLVersion95 extends PostgreSQLImageName {
-  override def imageName = "sebastianharko/postgres95:latest"
-}
-
-class ChangeDataCapturePostgreSQLVersion94 extends PostgreSQLImageName {
-  override def imageName = "sebastianharko/postgres94:latest"
 }

@@ -1,4 +1,4 @@
-package com.flixdb.cdc
+package com.flixdb.cdc.scaladsl
 
 import java.time.Instant
 
@@ -22,12 +22,8 @@ final case class RowInserted(
 ) extends Change {
 
   override def toString: String =
-    s"""|RowInserted(schemaName = $schemaName,
-        |  tableName = $tableName,
-        |  commitLogSeqNum = $commitLogSeqNum,
-        |  transactionId = $transactionId,
-        |  data = $data,
-        |  schema = $schema""".stripMargin
+    s"RowInserted(schemaName = $schemaName, tableName = $tableName, commitLogSeqNum = $commitLogSeqNum," +
+      s" transactionId = $transactionId, data = $data, schema = $schema)"
 
 }
 
@@ -43,14 +39,9 @@ final case class RowUpdated(
 ) extends Change {
 
   override def toString: String =
-    s"""|RowUpdated(schemaName = $schemaName,
-        |  tableName = $tableName,
-        |  commitLogSeqNum = $commitLogSeqNum,
-        |  transactionId = $transactionId,
-        |  dataNew = $dataNew,
-        |  dataOld = $dataOld,
-        |  schemaNew = $schemaNew,
-        |  schemaOld = $schemaOld""".stripMargin
+    s"RowUpdated(schemaName = $schemaName, tableName = $tableName, commitLogSeqNum = $commitLogSeqNum," +
+      s" transactionId = $transactionId, dataNew = $dataNew, dataOld = $dataOld, schemaNew = $schemaNew," +
+      s" schemaOld = $schemaOld)"
 }
 
 final case class RowDeleted(
@@ -63,12 +54,8 @@ final case class RowDeleted(
 ) extends Change {
 
   override def toString: String =
-    s"""|RowDeleted(schemaName = $schemaName,
-        |  tableName = $tableName,
-        |  commitLogSeqNum = $commitLogSeqNum,
-        |  transactionId = $transactionId,
-        |  data = $data,
-        |  schema = $schema""".stripMargin
+    s"RowDeleted(schemaName = $schemaName, tableName = $tableName, commitLogSeqNum = $commitLogSeqNum," +
+      s" transactionId = $transactionId, data = $data, schema = $schema)"
 
 }
 
@@ -80,11 +67,8 @@ final case class ChangeSet(
 ) {
 
   override def toString: String = {
-    s"""|ChangeSet(transactionId = $transactionId
-        |  commitLogSeqNum = $commitLogSeqNum
-        |  instance = $instant
-        |  changes = List(${changes.size} items)
-        |""".stripMargin
+    s"ChangeSet(transactionId = $transactionId, commitLogSeqNum = $commitLogSeqNum, instant = $instant, " +
+      s"changes = List(${changes}))"
   }
 
 }

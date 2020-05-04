@@ -1,9 +1,9 @@
-package com.flixdb.cdc
+package com.flixdb.cdc.samples
 
 import akka.actor.ActorSystem
 import akka.stream.KillSwitches
-import akka.stream.scaladsl.{Flow, Keep, Sink}
-import akka.{Done, NotUsed}
+import akka.stream.scaladsl.{Keep, Sink}
+import com.flixdb.cdc.scaladsl.{AckLogSeqNum, Change, Modes, PgCdcAckSettings, PgCdcSourceSettings, RowDeleted, RowInserted, RowUpdated, _}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.slf4j.LoggerFactory
 
@@ -11,22 +11,22 @@ import scala.concurrent.duration._
 import scala.io.StdIn
 import scala.util.{Failure, Success}
 
-class Main
+class Sample1
 
-object Main extends App {
+object Sample1 extends App {
 
-  val logger = LoggerFactory.getLogger(classOf[Main])
+  val logger = LoggerFactory.getLogger(classOf[Sample1])
 
   implicit val system = ActorSystem()
 
   val hikariConfig: HikariConfig = {
     val cfg = new HikariConfig
     cfg.setDriverClassName(classOf[org.postgresql.Driver].getName)
-    val url = s"jdbc:postgresql://localhost:5432/pgdb1"
+    val url = s"jdbc:postgresql://localhost:5432/docker"
     logger.info("JdbcUrl is {}", url)
     cfg.setJdbcUrl(url)
-    cfg.setUsername("pguser")
-    cfg.setPassword("pguser")
+    cfg.setUsername("docker")
+    cfg.setPassword("docker")
     cfg.setMaximumPoolSize(2)
     cfg.setMinimumIdle(0)
     cfg.setPoolName("pg")
@@ -39,11 +39,11 @@ object Main extends App {
 
   hikariDataSource.validate()
 
-  val ackFlow: Flow[(Done, AckLogSeqNum), Done, NotUsed] = ChangeDataCapture.ackFlow[Done](hikariDataSource,
+  val ackFlow = ChangeDataCapture().ackFlow[Change](hikariDataSource,
     PgCdcAckSettings("cdc")
   )
 
-  val source = ChangeDataCapture
+  val source = ChangeDataCapture()
     .source(hikariDataSource, PgCdcSourceSettings(slotName = "cdc",
       mode = Modes.Peek,
       dropSlotOnFinish = true,
@@ -64,14 +64,15 @@ object Main extends App {
             logger.info("Captured an update {}", r)
         }
       }
-      .map(item => (Done, AckLogSeqNum(item.commitLogSeqNum)))
+      .map(item => (item, AckLogSeqNum(item.commitLogSeqNum)))
       .via(ackFlow)
+      .wireTap(item => logger.info("Acknowledged: {}", item._1))
       .viaMat(KillSwitches.single)(Keep.right)
       .to(Sink.onComplete {
         case Failure(exception) =>
-          logger.debug("Failed!", exception)
-        case Success(value) =>
-          logger.debug("Success!")
+          logger.info("Failed :-( !", exception)
+        case Success(_) =>
+          logger.info("Success :-) !")
       }).run()
 
 
