@@ -124,8 +124,7 @@ abstract class SnapshottingSpec extends BaseSnapshottingSpec {
     user0Events.size shouldBe 1
     user0Events.head shouldBe event5
 
-    val otherNamespaceEvents
-      = dataAccess.selectEvents("megacorp_backup", "accounts", "account-0").futureValue
+    val otherNamespaceEvents = dataAccess.selectEvents("megacorp_backup", "accounts", "account-0").futureValue
 
     otherNamespaceEvents.size shouldBe 3
     otherNamespaceEvents shouldBe List(event6, event7, event8)
@@ -134,21 +133,24 @@ abstract class SnapshottingSpec extends BaseSnapshottingSpec {
 
 }
 
-class SnapshottingSpecWithPostgres104 extends SnapshottingSpec {
-  override def imageName: String = "sebastianharko/postgres104:latest"
+class SnapshottingSpecWithPostgres1012 extends SnapshottingSpec {
+  override def imageName: String =
+    "flixdb-docker-images.bintray.io/flixdb/postgresql:10.12"
 }
 
-class SnapshottingSpecWithPostgres96 extends SnapshottingSpec {
-  override def imageName: String = "sebastianharko/postgres96:latest"
+class SnapshottingSpecWithPostgres117 extends SnapshottingSpec {
+  override def imageName: String =
+    "flixdb-docker-images.bintray.io/flixdb/postgresql:11.7"
 }
 
-class SnapshottingSpecWithPostgres95 extends SnapshottingSpec {
-  override def imageName: String = "sebastianharko/postgres95:latest"
-}
+class SnapshottingSpecWithPostgres122 extends SnapshottingSpec {
+  override def imageName: String =
+    "flixdb-docker-images.bintray.io/flixdb/postgresql:12.2"
 
+}
 
 abstract class BaseSnapshottingSpec
-  extends AnyFunSuiteLike
+    extends AnyFunSuiteLike
     with BeforeAndAfterAll
     with ScalaFutures
     with Eventually
@@ -169,27 +171,25 @@ abstract class BaseSnapshottingSpec
       new GenericContainer(
         imageName
       )
-    container.waitingFor(Wait.forLogMessage(".*ready to accept connections.*\\n", 1))
+    container.waitingFor(Wait.forLogMessage(".*ready to accept connections.*\\n", 2))
     container.addExposedPort(5432)
     container.start()
     container
   }
 
-  val testConfig = ConfigFactory
-    .parseString(
-      s"""|container.host = "${postgreSQLContainer.getContainerIpAddress}"
-          |container.port = ${postgreSQLContainer.getMappedPort(5432)}
-          |postgresql-main-pool.host = $${container.host}
-          |postgresql-main-pool.port = $${container.port}""".stripMargin,
-      ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF)
-    )
-    .resolve()
-
-  val regularConfig = ConfigFactory.load
-
-  val mergedConfig = testConfig.withFallback(regularConfig)
-
-  implicit val system = ActorSystem("flixdb", config = mergedConfig)
+  implicit val system = ActorSystem(
+    "flixdb",
+    config = ConfigFactory
+      .parseString(
+        s"""|container.host = "${postgreSQLContainer.getContainerIpAddress}"
+            |container.port = ${postgreSQLContainer.getMappedPort(5432)}
+            |postgresql-main-pool.host = $${container.host}
+            |postgresql-main-pool.port = $${container.port}""".stripMargin,
+        ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF)
+      )
+      .resolve()
+      .withFallback(ConfigFactory.load)
+  )
 
   val dataAccess = new PostgresSQLDataAccessLayer()
 
@@ -201,4 +201,3 @@ abstract class BaseSnapshottingSpec
   }
 
 }
-

@@ -5,16 +5,18 @@ import akka.actor._
 import akka.cluster.singleton._
 import akka.kafka.ProducerMessage
 import akka.kafka.scaladsl.Producer
+import akka.pattern.ask
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.util.Timeout
 import com.flixdb.cdc.scaladsl._
 import com.flixdb.core.KafkaEventEnvelope._
 import com.flixdb.core.protobuf.CdcActor._
-import com.zaxxer.hikari.HikariDataSource
 import org.apache.kafka.clients.producer.ProducerRecord
+import spray.json._
 
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 object CdcStreamingToKafka extends ExtensionId[CdcStreamingToKafkaImpl] with ExtensionIdProvider {
 
@@ -27,12 +29,14 @@ object CdcStreamingToKafka extends ExtensionId[CdcStreamingToKafkaImpl] with Ext
 
 class CdcStreamingToKafkaImpl(system: ExtendedActorSystem) extends Extension {
 
+  import system.dispatcher
+
   // start singleton actor
 
   private val cdcToKafkaSingletonManager: ActorRef =
     system.actorOf(
       ClusterSingletonManager.props(
-        singletonProps = Props(classOf[CdcActor]),
+        singletonProps = Props(classOf[CdcStreamingToKafkaActor]),
         settings = ClusterSingletonManagerSettings(system),
         terminationMessage = End
       ),
@@ -45,10 +49,7 @@ class CdcStreamingToKafkaImpl(system: ExtendedActorSystem) extends Extension {
     name = "cdc-to-kafka-proxy"
   )
 
-  val isStreamRunning: Future[Boolean] = {
-    import akka.pattern.ask
-    import system.dispatcher
-
+  def isStreamRunning: Future[Boolean] = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(3.second)
     (proxy ? IsStreamRunning.defaultInstance)
@@ -58,13 +59,116 @@ class CdcStreamingToKafkaImpl(system: ExtendedActorSystem) extends Extension {
 
 }
 
-object CdcActor {
+class CdcStreamingToKafkaActor extends Actor with ActorLogging {
+
+  import CdcStreamingToKafkaActor._
+
+  implicit val system = context.system
+
+  val flixDbConfig = FlixDbConfig(system)
+
+  var isRunning = true
+
+  val dataSource = HikariCP(system).startHikariDataSource("postgresql-cdc-pool")
+
+  val changeDataCapture = ChangeDataCapture(dataSource)
+
+  val buildKafkaMessage = Flow[Change].collect {
+    case rowInserted: RowInserted if isEventsTable(rowInserted.tableName) =>
+      val namespace: String = extractNamespace(rowInserted.tableName)
+      log.debug("Captured append to table {} (namespace {})", rowInserted.toString, namespace)
+      val data = rowInserted.data
+      val eventEnvelope = convertToKafkaEventEnvelope(data)
+      val value = eventEnvelope.toJson.compactPrint
+      val topic = flixDbConfig.getTopicName(namespace, eventEnvelope.stream)
+      val key = eventEnvelope.subStreamId
+      log.debug("Attempting to write message with key {} to topic {}", key, value, topic)
+      ProducerMessage.single(
+        record = new ProducerRecord[String, String](topic, key, value),
+        passThrough = rowInserted
+      )
+  }
+
+  val postToKafka = {
+    val producerSettings = KafkaConfig(system).getProducerSettings
+    Producer.flexiFlow[String, String, RowInserted](producerSettings)
+  }
+
+  val cdcSource = changeDataCapture.source(
+    PgCdcSourceSettings(slotName = SlotName)
+      .withMode(Modes.Peek)
+      .withCreateSlotOnStart(true)
+      .withDropSlotOnFinish(false)
+      .withCloseDataSourceOnFinish(true)
+  )
+
+  val cdcAckFlow = changeDataCapture.ackFlow[Done](PgCdcAckSettings(SlotName))
+
+  val cdcToKafkaSource = cdcSource
+    .mapConcat(_.changes)
+    .via(buildKafkaMessage)
+    .via(postToKafka)
+    .map(_.passThrough)
+    .map((t: RowInserted) => {
+      (Done, AckLogSeqNum(t.commitLogSeqNum))
+    })
+    .via(cdcAckFlow)
+
+  val streamKillSwitch =
+    cdcToKafkaSource
+      .viaMat(KillSwitches.single)(Keep.right)
+      .to(Sink.onComplete {
+        case Failure(exception) =>
+          isRunning = false
+          log.error(exception, "Stream completed with failure")
+          self ! StreamFailed(exception)
+        case Success(_) =>
+          log.info("Stream completed succesfully")
+          isRunning = false
+      })
+      .run()
+
+  override def preStart(): Unit =
+    self ! Start
+
+  def stop(): Unit = {
+    Option(streamKillSwitch).foreach {
+      log.info("Shutting down stream")
+      killSwitch => killSwitch.shutdown()
+    }
+  }
+
+  override def receive: Receive = {
+    case Start =>
+      log.info("Started to stream changes from PostgreSQL to Kafka")
+    case End =>
+      log.info("Received termination message")
+      stop()
+    case StreamFailed(ex) =>
+      throw ex // this will restart the actor, possibly on another node
+    case _: IsStreamRunning =>
+      sender() ! StreamRunning(isRunning)
+  }
+
+}
+
+object CdcStreamingToKafkaActor {
 
   case object Start
 
-  case class StreamCompleted(ex: Option[Exception])
+  case class StreamFailed(ex: Throwable)
 
-  private def mapToKafkaEventEnvelope(data: Map[String, String]): KafkaEventEnvelope = {
+  val SlotName: String = "flixdb"
+
+  def isEventsTable(tableName: String): Boolean =
+    tableName.endsWith("_events")
+
+  def extractNamespace(tableName: String): String = {
+    val namespace: String = tableName.split("_").dropRight(1).mkString
+    namespace
+  }
+
+  def convertToKafkaEventEnvelope(data: Map[String, String]): KafkaEventEnvelope = {
     val stream = data("stream")
     val subStreamId = data("substream_id")
     val eventEnvelope = KafkaEventEnvelope(
@@ -79,101 +183,6 @@ object CdcActor {
       snapshot = data("snapshot").toBoolean
     )
     eventEnvelope
-  }
-
-}
-
-class CdcActor extends Actor with ActorLogging {
-
-  import CdcActor._
-  import spray.json._
-
-  implicit val system = context.system
-
-  val flixDbConfiguration = FlixDbConfiguration(system)
-
-  def getDataSource: HikariDataSource = HikariCP(system).getPool("postgresql-cdc-pool")
-
-  val slotName = "flixdb"
-
-  val kafkaProducerFlow: Flow[
-    ProducerMessage.Envelope[String, String, RowInserted],
-    ProducerMessage.Results[String, String, RowInserted],
-    NotUsed
-  ] = {
-    val producerSettings = KafkaSettings(system).getProducerSettings
-    Producer.flexiFlow[String, String, RowInserted](producerSettings)
-  }
-
-  def ackFlow(dataSource: HikariDataSource): Flow[(Done, AckLogSeqNum), (Done, AckLogSeqNum), NotUsed] =
-    ChangeDataCapture().ackFlow[Done](dataSource, PgCdcAckSettings(slotName))
-
-  def stream(dataSource: HikariDataSource) =
-    ChangeDataCapture()
-      .source(
-        dataSource,
-        PgCdcSourceSettings(slotName = "scalatest")
-          .withMode(Modes.Peek)
-          .withSlotName(slotName)
-          .withCreateSlotOnStart(true)
-      )
-      .mapConcat(_.changes)
-      .collect {
-        case rowInserted: RowInserted if rowInserted.tableName.endsWith("_events") =>
-          val namespace: String = rowInserted.tableName.split("_").dropRight(1).mkString
-          log.debug("Captured append to table {} (namespace {})", rowInserted.toString, namespace)
-          val data = rowInserted.data
-          val eventEnvelope = mapToKafkaEventEnvelope(data)
-          val value = eventEnvelope.toJson.compactPrint
-          val topic = s"$namespace-${data("stream")}"
-          val key = s"${data("substream_id")}"
-          log.debug("Writing key {} to topic {}", key, value, topic)
-          ProducerMessage.single(
-            record = new ProducerRecord[String, String](topic, key, value),
-            passThrough = rowInserted
-          )
-      }
-      .via(kafkaProducerFlow)
-      .map(_.passThrough)
-      .map((t: RowInserted) => {
-        log.debug("Wrote message to Kafka")
-        (Done, AckLogSeqNum(t.commitLogSeqNum))
-      })
-      .via(ackFlow(dataSource))
-      .viaMat(KillSwitches.single)(Keep.right)
-      .toMat(Sink.ignore)(Keep.both)
-
-  var streamKillSwitch: UniqueKillSwitch = null
-  var streamFut: Future[Done] = null
-
-  override def preStart(): Unit =
-    self ! Start
-
-  def stop(): Unit = {
-    Option(streamKillSwitch).foreach {
-      log.info("Shutting down stream")
-      killSwitch => killSwitch.shutdown()
-    }
-  }
-
-  var isEnding = false
-
-  override def receive: Receive = {
-    case Start =>
-      log.info("Started to stream changes from PostgreSQL to Kafka")
-      val dataSource = getDataSource
-      val values = stream(dataSource).run()
-      streamKillSwitch = values._1
-      streamFut = values._2
-      import system.dispatcher
-      streamFut.map(_ => dataSource.close())
-    case End =>
-      isEnding = true
-      log.info("Received termination message")
-      stop()
-    case m: IsStreamRunning =>
-      val running = (!streamFut.isCompleted)
-      sender() ! StreamRunning(running)
   }
 
 }

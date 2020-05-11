@@ -1,9 +1,11 @@
 package com.flixdb.cdc.samples
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.{Keep, Sink}
 import com.flixdb.cdc.scaladsl._
+import com.lonelyplanet.prometheus.api.MetricsEndpoint
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.slf4j.LoggerFactory
 
@@ -18,6 +20,8 @@ object Sample2 extends App {
   val logger = LoggerFactory.getLogger(classOf[Sample2])
 
   implicit val system = ActorSystem()
+
+  import system.dispatcher
 
   val hikariConfig: HikariConfig = {
     val cfg = new HikariConfig
@@ -39,9 +43,8 @@ object Sample2 extends App {
 
   hikariDataSource.validate()
 
-  val source = ChangeDataCapture()
+  val source = ChangeDataCapture(hikariDataSource)
     .source(
-      hikariDataSource,
       PgCdcSourceSettings(
         slotName = "cdc",
         mode = Modes.Get,
@@ -73,6 +76,17 @@ object Sample2 extends App {
       })
       .run()
 
+  import io.prometheus.client.CollectorRegistry
+  import io.prometheus.client.dropwizard.DropwizardExports
+
+  CollectorRegistry.defaultRegistry.register(
+    new DropwizardExports(ChangeDataCapture.metricsRegistry))
+
+  val metricsEndpoint = new MetricsEndpoint(CollectorRegistry.defaultRegistry)
+  val routes = metricsEndpoint.routes
+  val bindingFuture = Http().bindAndHandle(routes, interface = "0.0.0.0", port = 9091)
+
+
   println(
     s"""
        |_______________________
@@ -85,6 +99,9 @@ object Sample2 extends App {
   logger.info("Using the KillSwitch")
   killSwitch.shutdown()
 
-  system.terminate()
+  bindingFuture
+    .flatMap(_.unbind()) // trigger unbinding from the port
+    .onComplete(_ => system.terminate()) // and shutdown when done
+
 
 }

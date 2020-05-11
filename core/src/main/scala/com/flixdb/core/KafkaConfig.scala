@@ -9,18 +9,20 @@ import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializ
 
 import scala.collection.mutable
 
-object KafkaSettings extends ExtensionId[KafkaSettingsImpl] with ExtensionIdProvider {
+object KafkaConfig extends ExtensionId[KafkaConfigImpl] with ExtensionIdProvider {
 
-  override def lookup: KafkaSettings.type = KafkaSettings
+  override def lookup: KafkaConfig.type = KafkaConfig
 
   override def createExtension(system: ExtendedActorSystem) =
-    new KafkaSettingsImpl(system)
+    new KafkaConfigImpl(system)
 
 }
 
-class KafkaSettingsImpl(system: ExtendedActorSystem) extends Extension {
+class KafkaConfigImpl(system: ExtendedActorSystem) extends Extension {
 
-  private val config = system.settings.config.getConfig("kafka")
+  // This is "extra" config in the sense that there's already a lot of
+  // default configuration under akka.kafka
+  private val extraConfig = system.settings.config.getConfig("kafka-extra")
 
   private def toMap(config: Config): Map[String, String] = {
     val map = mutable.Map[String, String]()
@@ -28,11 +30,11 @@ class KafkaSettingsImpl(system: ExtendedActorSystem) extends Extension {
     map.toMap
   }
 
-  private val configAsMap = toMap(config)
+  val extraConfigAsMap = toMap(extraConfig)
 
-  val properties = {
+  val extraConfigAsProperties = {
     val properties = new Properties()
-    configAsMap.foreach {
+    extraConfigAsMap.foreach {
       case (k, v) => properties.put(k, v)
     }
     properties
@@ -40,12 +42,12 @@ class KafkaSettingsImpl(system: ExtendedActorSystem) extends Extension {
 
   def getProducerSettings: ProducerSettings[String, String] = {
     ProducerSettings(system, new StringSerializer, new StringSerializer)
-      .withProperties(configAsMap)
+      .withProperties(extraConfigAsMap)
   }
 
   def getBaseConsumerSettings: ConsumerSettings[String, String] = {
-    ConsumerSettings(system, new StringDeserializer, new StringDeserializer )
-      .withProperties(configAsMap)
+    ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
+      .withProperties(extraConfigAsMap)
   }
 
 }

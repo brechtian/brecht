@@ -47,7 +47,7 @@ class HikariCPImpl(system: ExtendedActorSystem) extends Extension {
     config
   }
 
-  def getPool(name: String): HikariDataSource =
+  def startHikariDataSource(name: String): HikariDataSource =
     new HikariDataSource(buildHikariConfig(name))
 
 }

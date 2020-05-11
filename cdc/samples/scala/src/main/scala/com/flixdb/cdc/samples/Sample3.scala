@@ -45,9 +45,8 @@ object Sample3 extends App with SprayJsonSupport with DefaultJsonProtocol {
 
   hikariDataSource.validate()
 
-  val (killSwitch, source) = ChangeDataCapture()
+  val (killSwitch, source) = ChangeDataCapture(hikariDataSource)
     .source(
-      hikariDataSource,
       PgCdcSourceSettings(
         slotName = "cdc",
         mode = Modes.Get,
