@@ -1,6 +1,5 @@
 package com.flixdb.cdc
 
-import com.flixdb.cdc.scaladsl.Plugins
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.Wait
 

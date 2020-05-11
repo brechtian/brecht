@@ -2,11 +2,6 @@ language: scala
 
 jdk:
   - openjdk14
-  - openjdk13
-  - openjdk12
-  - openjdk11
-  - openjdk10
-  - openjdk9
   - openjdk8
 
 services:
@@ -29,6 +24,8 @@ before_cache:
 
 script:
   - cd containers && ./build.sh && cd ..
+  - sbt scalastyle
+  - sbt test:scalastyle
   - sbt "project cdc;+test"
   - sbt "project cdc;+publishLocal"
   - sbt "project core;test"

@@ -3,7 +3,6 @@ package com.flixdb.cdc
 import java.time.{Instant, ZonedDateTime}
 
 import com.flixdb.cdc.PostgreSQL.SlotChange
-import com.flixdb.cdc.scaladsl.{ChangeSet, RowDeleted, RowInserted, RowUpdated}
 import org.slf4j.LoggerFactory
 
 private[cdc] case class Wal2JsonPlugin()

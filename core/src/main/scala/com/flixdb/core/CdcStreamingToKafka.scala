@@ -9,6 +9,7 @@ import akka.pattern.ask
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.util.Timeout
+import com.flixdb.cdc.{AckLogSeqNum, Change, Modes, PgCdcAckSettings, PgCdcSourceSettings, PostgreSQLInstance, RowInserted}
 import com.flixdb.cdc.scaladsl._
 import com.flixdb.core.KafkaEventEnvelope._
 import com.flixdb.core.protobuf.CdcActor._
@@ -71,7 +72,7 @@ class CdcStreamingToKafkaActor extends Actor with ActorLogging {
 
   val dataSource = HikariCP(system).startHikariDataSource("postgresql-cdc-pool")
 
-  val changeDataCapture = ChangeDataCapture(dataSource)
+  val changeDataCapture = ChangeDataCapture(PostgreSQLInstance(dataSource))
 
   val buildKafkaMessage = Flow[Change].collect {
     case rowInserted: RowInserted if isEventsTable(rowInserted.tableName) =>

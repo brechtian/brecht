@@ -2,14 +2,13 @@ package com.flixdb.cdc
 
 import java.time.{LocalDate, LocalTime, ZoneId, ZonedDateTime}
 
-import com.flixdb.cdc.scaladsl.RowUpdated
 import fastparse.{Parsed, _}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers
 
 import scala.collection.Map
 
-class ParsingSpec extends AnyFunSuite with matchers.should.Matchers {
+class TestDecodingParsingSpec extends AnyFunSuite with matchers.should.Matchers {
 
   import com.flixdb.cdc.TestDecodingPlugin._
 

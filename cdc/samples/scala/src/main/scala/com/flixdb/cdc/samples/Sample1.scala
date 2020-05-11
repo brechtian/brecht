@@ -3,7 +3,8 @@ package com.flixdb.cdc.samples
 import akka.actor.ActorSystem
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.{Keep, Sink}
-import com.flixdb.cdc.scaladsl.{AckLogSeqNum, Change, Modes, PgCdcAckSettings, PgCdcSourceSettings, RowDeleted, RowInserted, RowUpdated, _}
+import com.flixdb.cdc.scaladsl.ChangeDataCapture
+import com.flixdb.cdc._
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.slf4j.LoggerFactory
 
@@ -39,10 +40,11 @@ object Sample1 extends App {
 
   hikariDataSource.validate()
 
-  val ackFlow = ChangeDataCapture(hikariDataSource)
-    .ackFlow[Change](PgCdcAckSettings("cdc"))
+  val cdc = ChangeDataCapture(PostgreSQLInstance(hikariDataSource))
 
-  val source = ChangeDataCapture(hikariDataSource)
+  val ackFlow = cdc.ackFlow[Change](PgCdcAckSettings("cdc"))
+
+  val source = cdc
     .source(PgCdcSourceSettings(slotName = "cdc",
       mode = Modes.Peek,
       dropSlotOnFinish = true,
