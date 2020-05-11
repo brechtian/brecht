@@ -59,9 +59,9 @@ abstract class AppendingEventsSpec extends BaseAppendingEventsSpec {
   }
 
   test("Creating required tables") {
-      dataAccess
-        .createTablesIfNotExists(prefix = "megacorp")
-        .futureValue shouldBe Done
+    dataAccess
+      .createTablesIfNotExists(prefix = "megacorp")
+      .futureValue shouldBe Done
   }
 
   test("Appending an event to the events table") {
@@ -144,16 +144,16 @@ abstract class AppendingEventsSpec extends BaseAppendingEventsSpec {
 
 }
 
-class AppendingEventsSpecWithPostgreSQL104 extends AppendingEventsSpec {
-  override def imageName = "sebastianharko/postgres104:latest"
+class AppendingEventsSpecWithPostgreSQL1012 extends AppendingEventsSpec {
+  override def imageName = "flixdb-docker-images.bintray.io/flixdb/postgresql:10.12"
 }
 
-class AppendingEventsSpecWithPostgreSQL96 extends AppendingEventsSpec {
-  override def imageName = "sebastianharko/postgres96:latest"
+class AppendingEventsSpecWithPostgreSQL117 extends AppendingEventsSpec {
+  override def imageName = "flixdb-docker-images.bintray.io/flixdb/postgresql:11.7"
 }
 
-class AppendingEventsSpecWithPostgreSQL95 extends AppendingEventsSpec {
-  override def imageName = "sebastianharko/postgres95:latest"
+class AppendingEventsSpecWithPostgreSQL122 extends AppendingEventsSpec {
+  override def imageName = "flixdb-docker-images.bintray.io/flixdb/postgresql:12.2"
 }
 
 abstract class BaseAppendingEventsSpec
@@ -184,21 +184,19 @@ abstract class BaseAppendingEventsSpec
     container
   }
 
-  val testConfig = ConfigFactory
-    .parseString(
-      s"""|container.host = "${postgreSQLContainer.getContainerIpAddress}"
-          |container.port = ${postgreSQLContainer.getMappedPort(5432)}
-          |postgresql-main-pool.host = $${container.host}
-          |postgresql-main-pool.port = $${container.port}""".stripMargin,
-      ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF)
-    )
-    .resolve()
-
-  val regularConfig = ConfigFactory.load
-
-  val mergedConfig = testConfig.withFallback(regularConfig)
-
-  implicit val system = ActorSystem("flixdb", config = mergedConfig)
+  implicit val system = ActorSystem(
+    "flixdb",
+    config = ConfigFactory
+      .parseString(
+        s"""|container.host = "${postgreSQLContainer.getContainerIpAddress}"
+            |container.port = ${postgreSQLContainer.getMappedPort(5432)}
+            |postgresql-main-pool.host = $${container.host}
+            |postgresql-main-pool.port = $${container.port}""".stripMargin,
+        ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF)
+      )
+      .resolve()
+      .withFallback(ConfigFactory.load)
+  )
 
   val dataAccess = new PostgresSQLDataAccessLayer()
 

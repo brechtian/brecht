@@ -16,7 +16,7 @@ object Main extends App with JsonSupport {
   private implicit val executionContext: ExecutionContextExecutor =
     system.dispatcher
 
-  private val flixDbConfiguration = FlixDbConfiguration(system)
+  private val flixDbConfiguration = FlixDbConfig(system)
   private val postgreSQL = PostgreSQL(system)
 
   private val httpInterface = new HttpInterface()

@@ -39,12 +39,11 @@ object Sample1 extends App {
 
   hikariDataSource.validate()
 
-  val ackFlow = ChangeDataCapture().ackFlow[Change](hikariDataSource,
-    PgCdcAckSettings("cdc")
-  )
+  val ackFlow = ChangeDataCapture(hikariDataSource)
+    .ackFlow[Change](PgCdcAckSettings("cdc"))
 
-  val source = ChangeDataCapture()
-    .source(hikariDataSource, PgCdcSourceSettings(slotName = "cdc",
+  val source = ChangeDataCapture(hikariDataSource)
+    .source(PgCdcSourceSettings(slotName = "cdc",
       mode = Modes.Peek,
       dropSlotOnFinish = true,
       closeDataSourceOnFinish = true,

@@ -64,7 +64,7 @@ class PostgresSQLDataAccessLayer()(implicit system: ActorSystem) {
 
   private val blockingExecContext: MessageDispatcher = system.dispatchers.lookup("blocking-io-dispatcher")
 
-  private[postgresql] val hikariDataSource: HikariDataSource = HikariCP(system).getPool(poolName)
+  private[postgresql] val hikariDataSource: HikariDataSource = HikariCP(system).startHikariDataSource(poolName)
 
   private val logger: LoggingAdapter = akka.event.Logging(system, classOf[PostgresSQLDataAccessLayer])
 

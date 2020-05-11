@@ -29,7 +29,7 @@ object KafkaEventEnvelope extends DefaultJsonProtocol {
 
   import spray.json.{JsArray, JsNumber, JsObject, JsString, _}
 
-  implicit object KafkaEventEnvelopeJsonWriter extends RootJsonWriter[KafkaEventEnvelope] {
+  implicit object KafkaEventEnvelopeJsonFormat extends RootJsonFormat[KafkaEventEnvelope] {
     override def write(ee: KafkaEventEnvelope): JsValue =
       JsObject(
         "eventId" -> JsString(ee.eventId),
@@ -42,6 +42,36 @@ object KafkaEventEnvelope extends DefaultJsonProtocol {
         "timestamp" -> JsNumber(ee.timestamp),
         "snapshot" -> JsBoolean(ee.snapshot)
       )
+
+    override def read(json: JsValue): KafkaEventEnvelope = {
+      val fields =
+        List("eventId", "subStreamId", "eventType", "sequenceNum", "data", "stream", "tags", "timestamp", "snapshot")
+      json.asJsObject.getFields(fields: _*) match {
+        case Seq(
+            JsString(eventId),
+            JsString(subStreamId),
+            JsString(eventType),
+            JsNumber(sequenceNum),
+            data: JsValue,
+            JsString(stream),
+            JsArray(tagsJsArray),
+            JsNumber(timestamp),
+            JsBoolean(snapshot)
+            ) =>
+          KafkaEventEnvelope(
+            eventId,
+            subStreamId,
+            eventType,
+            sequenceNum.toInt,
+            data.compactPrint,
+            stream,
+            tagsJsArray.collect { case JsString(tag) => tag }.toList,
+            timestamp.toInt,
+            snapshot
+          )
+        case _ => deserializationError(s"Invalid JSON: required fields are ${fields.mkString(", ")}")
+      }
+    }
   }
 
 }

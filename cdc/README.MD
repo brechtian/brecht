@@ -16,8 +16,7 @@ PostgreSQL backend to Kafka.
 ## Roadmap
 
 This is under active development! Some items on our roadmap are: integrating with other streaming
-libraries (e.g., ZIO), providing a clean and friendly API for Java users and fans, adding monitoring capabilities (e.g., DropWizard metrics and dashboards for 
-Prometheus/Grafana users) and relentlessly refactoring and making the code better (e.g., using PGReplicationStream instead of the current approach).
+libraries (e.g., ZIO Streams), providing a clean and friendly API for Java users and fans and relentlessly refactoring and making the code better. 
 
 ## How it Works
 
@@ -113,8 +112,8 @@ implicit val system: ActorSystem = ActorSystem()
   
 val slotName = "slot_name"
 
-ChangeDataCapture()
-  .source(hikariDataSource, PgCdcSourceSettings(slotName))
+ChangeDataCapture(hikariDataSource)
+  .source(PgCdcSourceSettings(slotName))
   .log("postgresqlcdc", cs => s"Captured changes: ${cs.toString}")
   .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
   .to(Sink.ignore)
@@ -153,8 +152,9 @@ case class UserRegistered(id: String)
 
 val slotName = "slot_name"
 
-val source = ChangeDataCapture().source(hikariDataSource, PgCdcSourceSettings(slotName))
-val ackSink = ChangeDataCapture().ackSink(hikariDataSource, PgCdcAckSinkSettings(slotName))
+val cdc = ChangeDataCapture(hikariDataSource)
+val source = cdc.source(PgCdcSourceSettings(slotName))
+val ackSink = cdc.ackSink(PgCdcAckSinkSettings(slotName))
 
 source
   .mapConcat(_.changes)
@@ -170,6 +170,37 @@ source
 
 ```
 
+## Monitoring
+
+This module uses DropWizard metrics as an instrumentation library. Most of our users tend to use 
+the Prometheus/Grafana combo. To export the DropWizard metrics to Prometheus use the following code: 
+
+```
+import io.prometheus.client.CollectorRegistry
+import io.prometheus.client.dropwizard.DropwizardExports
+import com.lonelyplanet.prometheus.api.MetricsEndpoint
+
+CollectorRegistry.defaultRegistry.register(
+  new DropwizardExports(ChangeDataCapture.metricsRegistry))
+
+val metricsEndpoint = new MetricsEndpoint(CollectorRegistry.defaultRegistry)
+val routes = metricsEndpoint.routes
+val bindingFuture = Http().bindAndHandle(routes, interface = "0.0.0.0", port = 9091)
+```
+
+You'll need to add the [Prometheus Java Simpleclient Dropwizard](https://mvnrepository.com/artifact/io.prometheus/simpleclient_dropwizard) dependency
+as well as the [prometheus-akka-http](https://github.com/lonelyplanet/prometheus-akka-http) 
+dependency.
+
+```
+resolvers ++= Seq(Resolver.bintrayRepo("lonelyplanet", "maven"))
+val prometheusAkkaHttp = "com.lonelyplanet" %% "prometheus-akka-http" % "0.5.0"
+val prometheusDropWizard = "io.prometheus" % "simpleclient_dropwizard" % "0.8.1"
+```
+
+We provide a Grafana dashboard that you can download [here](src/main/grafana/Dashboard.json). 
+
+![Grafana Dashboard](Grafana.png)
 
 ## Limitations
 

@@ -3,7 +3,7 @@ package com.flixdb.cdc
 import java.time._
 
 import com.flixdb.cdc.PostgreSQL.SlotChange
-import com.flixdb.cdc.scaladsl.{Change, ChangeSet, RowDeleted, RowInserted, RowUpdated}
+import com.flixdb.cdc.scaladsl._
 import fastparse.NoWhitespace._
 import fastparse._
 import org.slf4j.LoggerFactory
@@ -12,7 +12,7 @@ import scala.collection.mutable.ArrayBuffer
 
 private[cdc] case class TestDecodingPlugin()
 
-private[cdc] object TestDecodingPlugin extends LogDecodPlugin  {
+private[cdc] object TestDecodingPlugin extends LogDecodPlugin {
 
   private val log = LoggerFactory.getLogger(classOf[TestDecodingPlugin])
 
@@ -214,14 +214,26 @@ private[cdc] object TestDecodingPlugin extends LogDecodPlugin  {
             f => getColsToIgnoreForTable(change.tableName, colsToIgnorePerTable).contains(f)
           result += (change match {
             case insert: RowInserted =>
-              insert.copy(data = insert.data.filterKeys(!hidden(_)).toMap)
+              insert.copy(data = insert.data.filter {
+                case (key, _) =>
+                  !hidden(key)
+              })
             case delete: RowDeleted =>
-              delete.copy(data = delete.data.filterKeys(!hidden(_)).toMap)
+              delete.copy(data = delete.data.filter {
+                case (key, _) =>
+                  !hidden(key)
+              })
             case update: RowUpdated =>
               update
                 .copy(
-                  dataNew = update.dataNew.filterKeys(!hidden(_)).toMap,
-                  dataOld = update.dataOld.filterKeys(!hidden(_)).toMap
+                  dataNew = update.dataNew.filter {
+                    case (key, _) =>
+                      !hidden(key)
+                  },
+                  dataOld = update.dataOld.filter {
+                    case (key, _) =>
+                      !hidden(key)
+                  }
                 )
           })
         }

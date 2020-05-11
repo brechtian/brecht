@@ -151,9 +151,8 @@ abstract class PostgreSQLCapturerSpec
 
       val dataSource = new HikariDataSource(cfg)
 
-      ChangeDataCapture()
+      ChangeDataCapture(dataSource)
         .source(
-          dataSource,
           PgCdcSourceSettings(
             slotName = "scalatest_1",
             dropSlotOnFinish = true,
@@ -274,9 +273,8 @@ abstract class PostgreSQLCapturerSpec
 
       import scala.concurrent.duration._
 
-      ChangeDataCapture()
+      ChangeDataCapture(dataSource)
         .source(
-          dataSource,
           PgCdcSourceSettings(
             slotName = "scalatest_2",
             closeDataSourceOnFinish = true,
@@ -360,9 +358,8 @@ abstract class PostgreSQLCapturerSpec
 
       deletePurchaseOrder(conn, id = 0)
 
-      ChangeDataCapture()
+      ChangeDataCapture(dataSource)
         .source(
-          dataSource,
           PgCdcSourceSettings(
             slotName = "scalatest_3",
             dropSlotOnFinish = true,
@@ -405,9 +402,8 @@ abstract class PostgreSQLCapturerSpec
 
       import javax.xml.bind.DatatypeConverter // this has a parseHexBinary method that turns out to be useful here
 
-      ChangeDataCapture()
+      ChangeDataCapture(dataSource)
         .source(
-          dataSource,
           PgCdcSourceSettings(
             slotName = "scalatest_4",
             dropSlotOnFinish = true,
@@ -450,9 +446,8 @@ abstract class PostgreSQLCapturerSpec
       updateEmployee(conn, 0, null)
       deleteEmployees(conn)
 
-      ChangeDataCapture()
+      ChangeDataCapture(dataSource)
         .source(
-          dataSource,
           PgCdcSourceSettings(
             slotName = "scalatest_5",
             dropSlotOnFinish = true,
@@ -494,9 +489,8 @@ abstract class PostgreSQLCapturerSpec
       updateWeather(conn, 0, "sunny")
       deleteWeathers(conn)
 
-      ChangeDataCapture()
+      ChangeDataCapture(dataSource)
         .source(
-          dataSource,
           PgCdcSourceSettings(
             slotName = "scalatest_6",
             dropSlotOnFinish = true,
@@ -546,9 +540,8 @@ abstract class PostgreSQLCapturerSpec
       updateSale(conn, id = 0, newInfo = """{"name": "alpakka", "countries": ["*"]}""")
       deleteSale(conn, 0)
 
-      ChangeDataCapture()
+      ChangeDataCapture(dataSource)
         .source(
-          dataSource,
           PgCdcSourceSettings(
             slotName = "scalatest_7",
             dropSlotOnFinish = true,

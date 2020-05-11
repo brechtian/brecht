@@ -3,7 +3,8 @@ package com.flixdb.cdc
 import java.io.Closeable
 import java.sql.{Connection, PreparedStatement, ResultSet, Statement}
 
-import com.flixdb.cdc.scaladsl.{Mode, Modes, Plugin}
+import com.codahale.metrics.{SharedMetricRegistries, Timer}
+import com.flixdb.cdc.scaladsl.{Mode, Modes}
 import javax.sql.DataSource
 import org.slf4j.LoggerFactory
 
@@ -27,12 +28,14 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
 
   private val log = LoggerFactory.getLogger(classOf[PostgreSQL])
 
+  val metricsRegistry = SharedMetricRegistries.getOrCreate("com.flixdb.cdc")
+
   def getConnection: Connection = {
     ds.getConnection()
   }
 
   /** Checks that the slot exists */
-  def checkSlotExists(slotName: String, plugin: Plugin): Boolean = {
+  def slotExists(slotName: String, pluginName: String): Boolean = {
 
     var conn: Connection = null
     var getReplicationSlots: PreparedStatement = null
@@ -51,12 +54,12 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
         val database = rs.getString("database")
         val foundPlugin = rs.getString("plugin")
         foundPlugin match {
-          case plugin.name =>
+          case someName if someName == pluginName =>
             log.info(
               "Found logical replication slot with name {} for database {} using {} plugin",
               slotName,
               database,
-              plugin.name
+              pluginName
             )
           case _ =>
             log.warn("Improper plugin configuration for slot with name {}", slotName)
@@ -75,7 +78,7 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
 
   }
 
-  def createSlot(slotName: String, plugin: Plugin): Unit = {
+  def createSlot(slotName: String, pluginName: String): Unit = {
     var conn: Connection = null
     var stmt: PreparedStatement = null
 
@@ -84,7 +87,7 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
       log.info("Setting up logical replication slot {}", slotName)
       stmt = conn.prepareStatement(s"SELECT * FROM pg_create_logical_replication_slot(?, ?)")
       stmt.setString(1, slotName)
-      stmt.setString(2, plugin.name)
+      stmt.setString(2, pluginName)
       stmt.execute()
     } catch {
       case NonFatal(e) =>
@@ -134,6 +137,8 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
 
   def flush(slotName: String, upToLogSeqNum: String): Unit = {
 
+    val flushTimer: Timer = metricsRegistry.timer(s"flush")
+    val timerContext = flushTimer.time()
     var conn: Connection = null
     var statement: PreparedStatement = null
 
@@ -150,11 +155,14 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
     } finally {
       attemptCloseStatement(statement)
       attemptCloseConnection(conn)
+      timerContext.close()
     }
   }
 
   def pullChanges(mode: Mode, slotName: String, maxItems: Int): List[SlotChange] = {
 
+    val pullTimer: Timer = metricsRegistry.timer(s"flush")
+    val timerContext = pullTimer.time()
     var conn: Connection = null
     var pullChangesStatement: PreparedStatement = null
     var rs: ResultSet = null
@@ -185,6 +193,7 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
       attemptCloseResultSet(rs)
       attemptCloseStatement(pullChangesStatement)
       attemptCloseConnection(conn)
+      timerContext.close()
     }
   }
 

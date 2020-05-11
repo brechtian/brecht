@@ -41,6 +41,7 @@ val scalaTest = "org.scalatest" %% "scalatest" % "3.1.1"
 val testcontainers = "org.testcontainers" % "testcontainers" % "1.14.1"
 val testContainersKafka = "org.testcontainers" % "kafka" % "1.12.4"
 val simulacrum = "org.typelevel" %% "simulacrum" % "1.0.0"
+val dropWizardMetricsCore = "io.dropwizard.metrics" % "metrics-core" % "4.1.2"
 
 lazy val root = (project in file("."))
   .aggregate(core, pb, cdc)
@@ -104,6 +105,7 @@ lazy val cdc = {
         sprayJson,
         akkaStream,
         postgreSQLDriver,
+        dropWizardMetricsCore,
         akkaSlf4j % Test,
         logback % Test,
         hikariCP % Test,

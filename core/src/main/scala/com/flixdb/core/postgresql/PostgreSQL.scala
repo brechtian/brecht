@@ -5,7 +5,7 @@ import akka.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId, Ext
 import akka.event.LoggingAdapter
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{ActorAttributes, OverflowStrategy, QueueOfferResult, Supervision}
-import com.flixdb.core.{EventEnvelope, FlixDbConfiguration}
+import com.flixdb.core.{EventEnvelope, FlixDbConfig}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.reflect.ClassTag
@@ -78,7 +78,7 @@ class PostgreSQLExtensionImpl(system: ActorSystem) extends Extension {
 
   private val logger: LoggingAdapter = akka.event.Logging(system, classOf[PostgreSQLExtensionImpl])
 
-  private val flixDbConfiguration = FlixDbConfiguration(system)
+  private val flixDbConfiguration = FlixDbConfig(system)
 
   private val dataAccess = new PostgresSQLDataAccessLayer()
 

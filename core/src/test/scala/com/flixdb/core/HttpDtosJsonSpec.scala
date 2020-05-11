@@ -16,8 +16,8 @@ class HttpDtosJsonSpec extends JsonSupport with AnyFunSuiteLike with BeforeAndAf
       subStreamId = "account-123",
       sequenceNum = 1,
       data = """{"owner":"John Smith"}""",
-      stream = "account-events",
-      tags = List("megacorp-events"),
+      stream = "accounts",
+      tags = List("megacorp"),
       timestamp = 42L,
       snapshot = false
     )
@@ -29,7 +29,7 @@ class HttpDtosJsonSpec extends JsonSupport with AnyFunSuiteLike with BeforeAndAf
     json.getFields("subStreamId") shouldBe Seq(JsString(e1.subStreamId))
     json.getFields("stream") shouldBe Seq(JsString(e1.stream))
     json.getFields("sequenceNum") shouldBe Seq(JsNumber(e1.sequenceNum))
-    json.getFields("tags") shouldBe Seq(JsArray(JsString("megacorp-events")))
+    json.getFields("tags") shouldBe Seq(JsArray(JsString("megacorp")))
     json.getFields("timestamp") shouldBe Seq(JsNumber(42))
     json.getFields("data") shouldBe an[Seq[JsObject]]
     json.getFields("data").head.asJsObject.getFields("owner") shouldBe Seq(JsString("John Smith"))
@@ -43,7 +43,7 @@ class HttpDtosJsonSpec extends JsonSupport with AnyFunSuiteLike with BeforeAndAf
          |"eventType":"com.megacorp.AccountCreated",
          |"eventId":"1af2948a-d4dd-48b0-8ca0-cb0fe7562b3d",
          |"sequenceNum":1,   
-         |"tags":["megacorp-events"]
+         |"tags":["megacorp"]
          |}""".stripMargin.parseJson
 
     val data: JsObject = json.asJsObject.fields("data").asJsObject
