@@ -1,0 +1,6 @@
+<scalastyle>
+    <name>Scalastyle Configuration</name>
+    <check level="error" class="org.scalastyle.file.FileTabChecker" enabled="true"></check>
+    <check level="error" class="org.scalastyle.file.WhitespaceEndOfLineChecker" enabled="true"></check>
+    <check level="error" class="org.scalastyle.file.NewLineAtEofChecker" enabled="true"></check>
+</scalastyle>

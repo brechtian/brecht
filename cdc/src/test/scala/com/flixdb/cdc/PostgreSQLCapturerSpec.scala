@@ -151,7 +151,7 @@ abstract class PostgreSQLCapturerSpec
 
       val dataSource = new HikariDataSource(cfg)
 
-      ChangeDataCapture(dataSource)
+      ChangeDataCapture(PostgreSQLInstance(dataSource))
         .source(
           PgCdcSourceSettings(
             slotName = "scalatest_1",
@@ -273,7 +273,7 @@ abstract class PostgreSQLCapturerSpec
 
       import scala.concurrent.duration._
 
-      ChangeDataCapture(dataSource)
+      ChangeDataCapture(PostgreSQLInstance(dataSource))
         .source(
           PgCdcSourceSettings(
             slotName = "scalatest_2",
@@ -358,7 +358,7 @@ abstract class PostgreSQLCapturerSpec
 
       deletePurchaseOrder(conn, id = 0)
 
-      ChangeDataCapture(dataSource)
+      ChangeDataCapture(PostgreSQLInstance(dataSource))
         .source(
           PgCdcSourceSettings(
             slotName = "scalatest_3",
@@ -402,7 +402,7 @@ abstract class PostgreSQLCapturerSpec
 
       import javax.xml.bind.DatatypeConverter // this has a parseHexBinary method that turns out to be useful here
 
-      ChangeDataCapture(dataSource)
+      ChangeDataCapture(PostgreSQLInstance(dataSource))
         .source(
           PgCdcSourceSettings(
             slotName = "scalatest_4",
@@ -446,7 +446,7 @@ abstract class PostgreSQLCapturerSpec
       updateEmployee(conn, 0, null)
       deleteEmployees(conn)
 
-      ChangeDataCapture(dataSource)
+      ChangeDataCapture(PostgreSQLInstance(dataSource))
         .source(
           PgCdcSourceSettings(
             slotName = "scalatest_5",
@@ -489,7 +489,7 @@ abstract class PostgreSQLCapturerSpec
       updateWeather(conn, 0, "sunny")
       deleteWeathers(conn)
 
-      ChangeDataCapture(dataSource)
+      ChangeDataCapture(PostgreSQLInstance(dataSource))
         .source(
           PgCdcSourceSettings(
             slotName = "scalatest_6",
@@ -540,7 +540,7 @@ abstract class PostgreSQLCapturerSpec
       updateSale(conn, id = 0, newInfo = """{"name": "alpakka", "countries": ["*"]}""")
       deleteSale(conn, 0)
 
-      ChangeDataCapture(dataSource)
+      ChangeDataCapture(PostgreSQLInstance(dataSource))
         .source(
           PgCdcSourceSettings(
             slotName = "scalatest_7",

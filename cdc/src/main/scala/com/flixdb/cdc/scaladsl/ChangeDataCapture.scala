@@ -1,15 +1,13 @@
 package com.flixdb.cdc.scaladsl
 
-import java.io.Closeable
-
-import akka.actor.{Actor, ActorLogging, ActorSystem, Props, Timers}
-import akka.pattern.ask
+import akka.actor.ActorSystem
+import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.scaladsl.adapter._
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.SharedMetricRegistries
+import com.flixdb.cdc.PostgreSQLActor._
 import com.flixdb.cdc._
-import com.flixdb.cdc.scaladsl.PostgreSQLActor._
-import javax.sql.DataSource
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -19,19 +17,15 @@ object ChangeDataCapture {
   val metricsRegistry = SharedMetricRegistries.getOrCreate("com.flixdb.cdc")
 }
 
-case class ChangeDataCapture(dataSource: DataSource with Closeable)(implicit system: ActorSystem) {
+case class ChangeDataCapture(postgreSQLInstance: PostgreSQLInstance)(implicit system: ActorSystem) {
 
   import ChangeDataCapture._
-  import system.dispatcher
+  import postgreSQLInstance._
+
+  implicit val actorSystem = system.toTyped
+  implicit val ec = actorSystem.executionContext
 
   private val logger = LoggerFactory.getLogger(classOf[ChangeDataCapture])
-
-  private val postgreSQL = PostgreSQL(dataSource)
-
-  private lazy val postgreSQLActor = system.actorOf(
-    Props(new PostgreSQLActor(postgreSQL))
-      .withDispatcher("cdc-blocking-io-dispatcher")
-  )
 
   private val deduplicate: Flow[ChangeSet, ChangeSet, NotUsed] = Flow[ChangeSet].statefulMapConcat { () =>
     var lastSeenTransactionId = Long.MinValue;
@@ -74,20 +68,20 @@ case class ChangeDataCapture(dataSource: DataSource with Closeable)(implicit sys
       .unfoldResourceAsync[List[ChangeSet], NotUsed](
         create = () => {
           import settings._
-          (postgreSQLActor ? Start(slotName, plugin.name, createSlotOnStart))
-            .mapTo[Done]
+          (postgreSQLActor.ask[Done](ref => Start(slotName, plugin.name, createSlotOnStart, ref)))
             .map(_ => NotUsed)
         },
         read = _ => {
           def read() = {
             import settings._
-            (postgreSQLActor ? GetChanges(
+            (postgreSQLActor.ask[ChangeSetList](ref => GetChanges(
               slotName,
               mode,
               plugin,
               maxItems,
-              columnsToIgnore
-            )).mapTo[ChangeSetList].map(_.list).map(Some(_))
+              columnsToIgnore,
+              ref
+            ))).map(_.list).map(Some(_))
           }
           delayed(settings.pollInterval).flatMap(_ => read())
         },
@@ -120,7 +114,8 @@ case class ChangeDataCapture(dataSource: DataSource with Closeable)(implicit sys
         logger.debug("List of unacknowledged lsns {}", lst)
       })
       .mapAsyncUnordered(1) { items: Seq[AckLogSeqNum] =>
-        (postgreSQLActor ? Flush(settings.slotName, items.last.logSeqNum)).mapTo[Done]
+        postgreSQLActor.ask[Done](ref =>
+          Flush(settings.slotName, items.last.logSeqNum, ref))
       }
       .to(Sink.ignore)
   }
@@ -138,71 +133,9 @@ case class ChangeDataCapture(dataSource: DataSource with Closeable)(implicit sys
         logger.debug("List of unacknowledged lsns {}", lst)
       })
       .mapAsyncUnordered(1) { items: Seq[(T, AckLogSeqNum)] =>
-        (postgreSQLActor ? Flush(settings.slotName, items.last._2.logSeqNum))
-          .mapTo[Done]
+        postgreSQLActor.ask[Done](ref => Flush(settings.slotName, items.last._2.logSeqNum, ref))
           .map(_ => items.toList)
       }
   }.mapConcat(identity)
-
-}
-
-object PostgreSQLActor {
-
-  case class Start(slotName: String, pluginName: String, createSlotIfNotExists: Boolean)
-
-  case class GetChanges(
-      slotName: String,
-      mode: Mode,
-      plugin: Plugin,
-      maxItems: Int,
-      columnsToIgnore: Map[String, List[String]]
-  )
-
-  case class Stop(delay: Option[FiniteDuration], slotName: String, dropSlot: Boolean, closeDataSource: Boolean)
-
-  case class Flush(slotName: String, logSeqNum: String)
-
-  case class ChangeSetList(list: List[ChangeSet])
-
-}
-
-class PostgreSQLActor(postgreSQL: PostgreSQL) extends Actor with ActorLogging with Timers {
-
-  import PostgreSQLActor._
-
-  override def receive: Receive = {
-    case Start(slotName, pluginName, createIfNotExists) =>
-      if (!postgreSQL.slotExists(slotName, pluginName))
-        if (createIfNotExists)
-          postgreSQL.createSlot(slotName, pluginName)
-      sender() ! Done
-
-    case Flush(slotName, logSeqNum) =>
-      postgreSQL.flush(slotName, logSeqNum)
-      sender() ! Done
-
-    case GetChanges(slotName, mode, plugin, maxItems, columnsToIgnore) =>
-      val result: List[ChangeSet] = {
-        val slotChanges: List[PostgreSQL.SlotChange] =
-          postgreSQL.pullChanges(mode, slotName, maxItems)
-        plugin match {
-          case Plugins.TestDecoding =>
-            TestDecodingPlugin.transformSlotChanges(slotChanges, columnsToIgnore)
-          case Plugins.Wal2Json =>
-            Wal2JsonPlugin.transformSlotChanges(slotChanges, columnsToIgnore)
-        }
-      }
-      sender() ! ChangeSetList(result)
-
-    case Stop(None, slotName, dropSlot, closeDataSource) =>
-      if (dropSlot)
-        postgreSQL.dropSlot(slotName)
-      if (closeDataSource)
-        postgreSQL.ds.close()
-
-    case s @ Stop(Some(delay), _, _, _) =>
-      timers.startSingleTimer("TickKey", s.copy(delay = None), delay)
-
-  }
 
 }

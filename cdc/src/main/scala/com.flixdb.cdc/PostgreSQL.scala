@@ -4,7 +4,6 @@ import java.io.Closeable
 import java.sql.{Connection, PreparedStatement, ResultSet, Statement}
 
 import com.codahale.metrics.{SharedMetricRegistries, Timer}
-import com.flixdb.cdc.scaladsl.{Mode, Modes}
 import javax.sql.DataSource
 import org.slf4j.LoggerFactory
 
@@ -161,7 +160,7 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
 
   def pullChanges(mode: Mode, slotName: String, maxItems: Int): List[SlotChange] = {
 
-    val pullTimer: Timer = metricsRegistry.timer(s"flush")
+    val pullTimer: Timer = metricsRegistry.timer(s"pull")
     val timerContext = pullTimer.time()
     var conn: Connection = null
     var pullChangesStatement: PreparedStatement = null

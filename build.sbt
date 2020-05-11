@@ -14,8 +14,8 @@ lazy val scala213 = "2.13.1"
 lazy val scala212 = "2.12.10"
 lazy val supportedScalaVersions = List(scala213, scala212)
 
-val akkaVersion = "2.6.4"
-val akkaHttpVersion = "10.1.11"
+val akkaVersion = "2.6.5"
+val akkaHttpVersion = "10.1.12"
 
 // Dependencies
 val slf4j = "org.slf4j" % "slf4j-api" % "1.7.30"
@@ -27,16 +27,18 @@ val json4sJackson = "org.json4s" %% "json4s-jackson" % "3.6.7"
 val akkaSlf4j = "com.typesafe.akka" %% "akka-slf4j" % akkaVersion
 val akkaHttp = "com.typesafe.akka" %% "akka-http" % akkaHttpVersion
 val akkaHttpSprayJson = "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion
+val akkaActorTyped = "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion
 val akkaStream = "com.typesafe.akka" %% "akka-stream" % akkaVersion
 val akkaStreamKafka = "com.typesafe.akka" %% "akka-stream-kafka" % "2.0.2"
 val akkaCluster = "com.typesafe.akka" %% "akka-cluster" % akkaVersion
+val akkaClusterTyped = "com.typesafe.akka" %% "akka-cluster-typed" % akkaVersion
 val akkaClusterTools = "com.typesafe.akka" %% "akka-cluster-tools" % akkaVersion
 val akkaClusterSharding = "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion
 val akkaDistributedData = "com.typesafe.akka" %% "akka-distributed-data" % akkaVersion
 val fastparse = "com.lihaoyi" %% "fastparse" % "2.2.2"
 val jackartaXmlBindApi = "jakarta.xml.bind" % "jakarta.xml.bind-api" % "2.3.2"
 val akkaTestKit = "com.typesafe.akka" %% "akka-testkit" % akkaVersion
-val akkaStreamTestKit = "com.typesafe.akka" %% "akka-stream-testkit" % "2.6.4"
+val akkaStreamTestKit = "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion
 val scalaTest = "org.scalatest" %% "scalatest" % "3.1.1"
 val testcontainers = "org.testcontainers" % "testcontainers" % "1.14.1"
 val testContainersKafka = "org.testcontainers" % "kafka" % "1.12.4"
@@ -68,6 +70,7 @@ lazy val core = {
         akkaStream,
         akkaStreamKafka,
         akkaCluster,
+        akkaClusterTyped,
         akkaClusterTools,
         akkaDistributedData,
         akkaClusterSharding,
@@ -104,6 +107,7 @@ lazy val cdc = {
         fastparse,
         sprayJson,
         akkaStream,
+        akkaActorTyped,
         postgreSQLDriver,
         dropWizardMetricsCore,
         akkaSlf4j % Test,

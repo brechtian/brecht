@@ -29,6 +29,8 @@ before_cache:
 
 script:
   - cd containers && ./build.sh && cd ..
+  - sbt scalastyle
+  - sbt test:scalastyle
   - sbt "project cdc;+test"
   - sbt "project cdc;+publishLocal"
   - sbt "project core;test"

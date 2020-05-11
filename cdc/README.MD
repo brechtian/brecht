@@ -112,7 +112,7 @@ implicit val system: ActorSystem = ActorSystem()
   
 val slotName = "slot_name"
 
-ChangeDataCapture(hikariDataSource)
+ChangeDataCapture(PostgreSQLInstance(hikariDataSource))
   .source(PgCdcSourceSettings(slotName))
   .log("postgresqlcdc", cs => s"Captured changes: ${cs.toString}")
   .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -152,7 +152,7 @@ case class UserRegistered(id: String)
 
 val slotName = "slot_name"
 
-val cdc = ChangeDataCapture(hikariDataSource)
+val cdc = ChangeDataCapture(PostgreSQLInstance(hikariDataSource))
 val source = cdc.source(PgCdcSourceSettings(slotName))
 val ackSink = cdc.ackSink(PgCdcAckSinkSettings(slotName))
 

@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.{Keep, Sink}
+import com.flixdb.cdc.{Change, Modes, PgCdcSourceSettings, PostgreSQLInstance, RowDeleted, RowInserted, RowUpdated}
 import com.flixdb.cdc.scaladsl._
 import com.lonelyplanet.prometheus.api.MetricsEndpoint
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
@@ -43,7 +44,7 @@ object Sample2 extends App {
 
   hikariDataSource.validate()
 
-  val source = ChangeDataCapture(hikariDataSource)
+  val source = ChangeDataCapture(PostgreSQLInstance(hikariDataSource))
     .source(
       PgCdcSourceSettings(
         slotName = "cdc",

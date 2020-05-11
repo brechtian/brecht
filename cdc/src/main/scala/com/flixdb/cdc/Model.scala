@@ -1,4 +1,4 @@
-package com.flixdb.cdc.scaladsl
+package com.flixdb.cdc
 
 import java.time.Instant
 

@@ -7,6 +7,7 @@ import akka.http.scaladsl.model.sse.ServerSentEvent
 import akka.http.scaladsl.server.Directives._
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.{BroadcastHub, Keep}
+import com.flixdb.cdc.{Change, Modes, PgCdcSourceSettings, PostgreSQLInstance, RowDeleted, RowInserted, RowUpdated}
 import com.flixdb.cdc.scaladsl._
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.slf4j.LoggerFactory
@@ -45,7 +46,7 @@ object Sample3 extends App with SprayJsonSupport with DefaultJsonProtocol {
 
   hikariDataSource.validate()
 
-  val (killSwitch, source) = ChangeDataCapture(hikariDataSource)
+  val (killSwitch, source) = ChangeDataCapture(PostgreSQLInstance(hikariDataSource))
     .source(
       PgCdcSourceSettings(
         slotName = "cdc",

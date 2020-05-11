@@ -39,10 +39,10 @@ class HttpDtosJsonSpec extends JsonSupport with AnyFunSuiteLike with BeforeAndAf
   test("Deserializing json into 'PostEvent'") {
 
     val json: JsValue =
-      """|{"data":{"owner":"John Smith"},  
+      """|{"data":{"owner":"John Smith"},
          |"eventType":"com.megacorp.AccountCreated",
          |"eventId":"1af2948a-d4dd-48b0-8ca0-cb0fe7562b3d",
-         |"sequenceNum":1,   
+         |"sequenceNum":1,
          |"tags":["megacorp"]
          |}""".stripMargin.parseJson
 

@@ -1,7 +1,6 @@
 package com.flixdb.cdc
 
 import com.flixdb.cdc.PostgreSQL.SlotChange
-import com.flixdb.cdc.scaladsl.RowInserted
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers
 
