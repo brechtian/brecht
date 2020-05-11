@@ -178,7 +178,7 @@ abstract class BaseAppendingEventsSpec
       new GenericContainer(
         imageName
       )
-    container.waitingFor(Wait.forLogMessage(".*ready to accept connections.*\\n", 1))
+    container.waitingFor(Wait.forLogMessage(".*ready to accept connections.*\\n", 2))
     container.addExposedPort(5432)
     container.start()
     container
