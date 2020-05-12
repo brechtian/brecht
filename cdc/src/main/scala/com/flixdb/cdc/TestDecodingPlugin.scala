@@ -3,7 +3,6 @@ package com.flixdb.cdc
 import java.time._
 
 import com.flixdb.cdc.PostgreSQL.SlotChange
-import com.flixdb.cdc.scaladsl._
 import fastparse.NoWhitespace._
 import fastparse._
 import org.slf4j.LoggerFactory
@@ -183,57 +182,55 @@ private[cdc] object TestDecodingPlugin extends LogDecodPlugin {
     colsToAlwaysIgnore ++ colsToIgnorePerTable.get(tableName).map(_.toSet).getOrElse(Set.empty)
   }
 
+  def getTablesToIgnore(colsToIgnorePerTable: Map[String, List[String]]): Set[String] = {
+    colsToIgnorePerTable.filter { case (_, v) => v == "*" :: Nil }.keys.toSet
+  }
+
+  def filterKeys[K,V](data: Map[K, V], predicate: K => Boolean): Map[K, V] = data.filter {
+    case (key, _) =>
+      predicate(key)
+  }
+
   def slotChangesToChangeSet(
       transactionId: Long,
-      slotChanges: List[SlotChange],
+      slotChanges: List[SlotChange], // non-empty
       colsToIgnorePerTable: Map[String, List[String]]
   ): ChangeSet = {
 
-    val ignoreTables: Set[String] = colsToIgnorePerTable.filter { case (_, v) => v == "*" :: Nil }.keys.toSet
+    val ignoreTables: Set[String] = getTablesToIgnore(colsToIgnorePerTable)
 
     val result = ArrayBuffer[Change]()
     var instant: Instant = null
     var commitLogSeqNum: String = null
 
     // the last item is the "COMMIT _ (at _)"
-    (slotChanges.last, parse(slotChanges.last.data, commit(_))) match {
-      case (s, Parsed.Success(CommitStatement(_, t: ZonedDateTime), _)) =>
+    val lastItem = slotChanges.last
+    parse(lastItem.data, commit(_)) match {
+      case Parsed.Success(CommitStatement(_, t: ZonedDateTime), _) =>
         instant = t.toInstant
-        commitLogSeqNum = s.location
-      case (s, f: Parsed.Failure) =>
-        log.error(s"Failure ${f.toString()} when parsing ${s.data}")
+        commitLogSeqNum = lastItem.location
+      case f: Parsed.Failure =>
+        log.error(s"Failure ${f.toString()} when parsing ${lastItem.data}")
     }
 
     // we drop the first item and the last item since the first one is just the "BEGIN _" and the last one is the "COMMIT _ (at _)"
     slotChanges.drop(1).dropRight(1).map(s => (s, parse(s.data, changeStatement(_)))).foreach {
 
-      case (s, Parsed.Success(changeBuilder: ChangeBuilder, _)) =>
-        val change = changeBuilder((commitLogSeqNum, transactionId))
+      case (_, Parsed.Success(changeBuilder: ChangeBuilder, _)) =>
+        val change: Change = changeBuilder((commitLogSeqNum, transactionId))
         if (!ignoreTables.contains(change.tableName)) {
-          val hidden: String => Boolean =
-            f => getColsToIgnoreForTable(change.tableName, colsToIgnorePerTable).contains(f)
+          val notHidden: String => Boolean =
+            f => !getColsToIgnoreForTable(change.tableName, colsToIgnorePerTable).contains(f)
           result += (change match {
             case insert: RowInserted =>
-              insert.copy(data = insert.data.filter {
-                case (key, _) =>
-                  !hidden(key)
-              })
+              insert.copy(data = filterKeys(insert.data, notHidden))
             case delete: RowDeleted =>
-              delete.copy(data = delete.data.filter {
-                case (key, _) =>
-                  !hidden(key)
-              })
+              delete.copy(data = filterKeys(delete.data, notHidden))
             case update: RowUpdated =>
               update
                 .copy(
-                  dataNew = update.dataNew.filter {
-                    case (key, _) =>
-                      !hidden(key)
-                  },
-                  dataOld = update.dataOld.filter {
-                    case (key, _) =>
-                      !hidden(key)
-                  }
+                  dataNew = filterKeys(update.dataNew, notHidden),
+                  dataOld = filterKeys(update.dataOld, notHidden)
                 )
           })
         }

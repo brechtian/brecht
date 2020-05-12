@@ -2,8 +2,9 @@ package com.flixdb.cdc
 
 import akka.actor.ActorSystem
 import akka.event.Logging
-import akka.stream.Attributes
+import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.testkit.scaladsl.TestSink
+import akka.stream.{Attributes, KillSwitches, UniqueKillSwitch}
 import akka.testkit.{ImplicitSender, TestKit}
 import com.flixdb.cdc.scaladsl._
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
@@ -166,7 +167,7 @@ abstract class PostgreSQLCapturerSpec
         .request(9)
         // expecting the insert events first
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, RowInserted("public", "customers", _, _, data, _) :: Nil)
+          case ChangeSet(_, _, _, RowInserted("public", "customers", _, _, data, _) :: Nil)
               if Map(
                 "id" -> "0",
                 "first_name" -> "John",
@@ -176,7 +177,7 @@ abstract class PostgreSQLCapturerSpec
               ) == data => // success
         }
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, RowInserted("public", "customers", _, _, data, _) :: Nil)
+          case ChangeSet(_, _, _, RowInserted("public", "customers", _, _, data, _) :: Nil)
               if Map(
                 "id" -> "1",
                 "first_name" -> "George",
@@ -186,7 +187,7 @@ abstract class PostgreSQLCapturerSpec
               ) == data => // success
         }
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, RowInserted("public", "customers", _, _, data, _) :: Nil)
+          case ChangeSet(_, _, _, RowInserted("public", "customers", _, _, data, _) :: Nil)
               if Map(
                 "id" -> "2",
                 "first_name" -> "Paul",
@@ -196,7 +197,7 @@ abstract class PostgreSQLCapturerSpec
               ) == data => // success
         }
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, RowInserted("public", "customers", _, _, data, _) :: Nil)
+          case ChangeSet(_, _, _, RowInserted("public", "customers", _, _, data, _) :: Nil)
               if Map(
                 "id" -> "3",
                 "first_name" -> "Ringo",
@@ -207,7 +208,7 @@ abstract class PostgreSQLCapturerSpec
         }
         // expecting the update events next
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, _, _, _) :: Nil)
+          case ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, _, _, _) :: Nil)
               if Map(
                 "id" -> "0",
                 "first_name" -> "John",
@@ -217,7 +218,7 @@ abstract class PostgreSQLCapturerSpec
               ) == dataNew => // success
         }
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, _, _, _) :: Nil)
+          case ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, _, _, _) :: Nil)
               if Map(
                 "id" -> "1",
                 "first_name" -> "George",
@@ -227,7 +228,7 @@ abstract class PostgreSQLCapturerSpec
               ) == dataNew => // success
         }
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, _, _, _) :: Nil)
+          case ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, _, _, _) :: Nil)
               if Map(
                 "id" -> "2",
                 "first_name" -> "Paul",
@@ -238,7 +239,7 @@ abstract class PostgreSQLCapturerSpec
 
         }
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, _, _, _) :: Nil)
+          case ChangeSet(_, _, _, RowUpdated("public", "customers", _, _, dataNew, _, _, _) :: Nil)
               if Map(
                 "id" -> "3",
                 "first_name" -> "Ringo",
@@ -250,7 +251,7 @@ abstract class PostgreSQLCapturerSpec
         }
         //  expecting the delete events next (all in a single transaction )
         .expectNextChainingPF {
-          case c @ ChangeSet(_, _, _, deleteEvents)
+          case ChangeSet(_, _, _, deleteEvents)
               if deleteEvents.size == 4 && deleteEvents.count(_.isInstanceOf[RowDeleted]) == 4 => // success
         }
         .cancel()
@@ -465,7 +466,8 @@ abstract class PostgreSQLCapturerSpec
         }
         .expectNextChainingPF {
           case RowUpdated("public", "employees", _, _, data, _, _, _)
-              // TODO: fix inconsistency between plugins: "COLUMN_NAME" vs just COLUMN_NAME
+              // NOTE: some inconsistency between plugins: "COLUMN_NAME" vs just COLUMN_NAME
+              // but probably not worth the effort to fix this inconsistency
               if data.get("\"position\"").contains("null") || data.get("position").contains("null") => // success
         }
         .expectNextChainingPF {
@@ -506,7 +508,8 @@ abstract class PostgreSQLCapturerSpec
         .expectNextChainingPF {
           case RowInserted("public", tableName, _, _, _, _)
               if (tableName == """"WEATHER"""" || tableName == "WEATHER") => // success
-          // TODO: fix inconsistency between plugins: "COLUMN_NAME" vs just COLUMN_NAME
+          // NOTE: some inconsistency between plugins: "COLUMN_NAME" vs just COLUMN_NAME
+          // but probably not worth the effort to fix this inconsistency
         }
         .expectNextChainingPF {
           case RowUpdated("public", _, _, _, dataNew, dataOld, _, _)
@@ -564,6 +567,56 @@ abstract class PostgreSQLCapturerSpec
           case RowDeleted("public", "sales", _, _, _, _) => // success
         }
         .cancel()
+
+      eventually {
+        dataSource.isClosed shouldBe true
+      }
+
+    }
+
+    "be able to work in 'at-least-once' mode" in {
+
+      val dataSource = new HikariDataSource(cfg)
+
+      val slotName = "scalatest_8"
+
+      setUpLogicalDecodingSlot(conn, slotName, plugin.name)
+
+      (1 to 100).foreach { id: Int => insertEmployee(conn, id, "Giovanni", "employee") }
+
+      val cdc = ChangeDataCapture(PostgreSQLInstance(dataSource))
+
+      var items = List[Change]()
+
+      val cdcSourceSettings = PgCdcSourceSettings(
+        slotName = slotName,
+        dropSlotOnFinish = true,
+        closeDataSourceOnFinish = true,
+        plugin = this.plugin,
+        mode = Modes.Peek
+      )
+
+      val cdcAckFlowSettings = PgCdcAckSettings(slotName)
+
+      val killSwitch: UniqueKillSwitch =
+        cdc
+          .source(cdcSourceSettings)
+          .mapConcat(_.changes)
+          .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
+          .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
+          .map(ch => (ch, AckLogSeqNum(ch.commitLogSeqNum)))
+          .via(cdc.ackFlow(cdcAckFlowSettings))
+          .wireTap((item: (Change, AckLogSeqNum)) => items = item._1 +: items)
+          .viaMat(KillSwitches.single)(Keep.right)
+          .to(Sink.ignore)
+          .run()
+
+      eventually {
+        items should have size 100
+        items.foreach { change => change shouldBe an[RowInserted] }
+      }
+
+      killSwitch.shutdown()
 
       eventually {
         dataSource.isClosed shouldBe true
