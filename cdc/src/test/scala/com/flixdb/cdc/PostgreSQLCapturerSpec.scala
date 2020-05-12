@@ -588,17 +588,17 @@ abstract class PostgreSQLCapturerSpec
 
       var items = List[Change]()
 
+      val settings = PgCdcSourceSettings(
+        slotName = slotName,
+        dropSlotOnFinish = true,
+        closeDataSourceOnFinish = true,
+        plugin = this.plugin,
+        mode = Modes.Peek
+      )
+
       val killSwitch: UniqueKillSwitch =
         cdc
-          .source(
-            PgCdcSourceSettings(
-              slotName = slotName,
-              dropSlotOnFinish = true,
-              closeDataSourceOnFinish = true,
-              plugin = this.plugin,
-              mode = Modes.Peek
-            )
-          )
+          .source(settings)
           .mapConcat(_.changes)
           .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
           .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
@@ -611,7 +611,7 @@ abstract class PostgreSQLCapturerSpec
 
       eventually {
         items should have size 100
-        items.foreach { change => change shouldBe an[RowInserted]}
+        items.foreach { change => change shouldBe an[RowInserted] }
       }
 
       killSwitch.shutdown()
