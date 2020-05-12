@@ -186,7 +186,7 @@ private[cdc] object TestDecodingPlugin extends LogDecodPlugin {
     colsToIgnorePerTable.filter { case (_, v) => v == "*" :: Nil }.keys.toSet
   }
 
-  def filterKeys(data: Map[String, String], predicate: String => Boolean): Map[String, String] = data.filter {
+  def filterKeys[K,V](data: Map[K, V], predicate: K => Boolean): Map[K, V] = data.filter {
     case (key, _) =>
       predicate(key)
   }
