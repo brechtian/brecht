@@ -576,18 +576,19 @@ abstract class PostgreSQLCapturerSpec
 
     "be able to work in 'at-least-once' mode" in {
 
+      val dataSource = new HikariDataSource(cfg)
+
       val slotName = "scalatest_8"
 
       setUpLogicalDecodingSlot(conn, slotName, plugin.name)
 
-      val dataSource = new HikariDataSource(cfg)
       (1 to 100).foreach { id: Int => insertEmployee(conn, id, "Giovanni", "employee") }
 
       val cdc = ChangeDataCapture(PostgreSQLInstance(dataSource))
 
       var items = List[Change]()
 
-      val r: UniqueKillSwitch =
+      val killSwitch: UniqueKillSwitch =
         cdc
           .source(
             PgCdcSourceSettings(
@@ -613,7 +614,7 @@ abstract class PostgreSQLCapturerSpec
         items.foreach { change => change shouldBe an[RowInserted]}
       }
 
-      r.shutdown()
+      killSwitch.shutdown()
 
       eventually {
         dataSource.isClosed shouldBe true
