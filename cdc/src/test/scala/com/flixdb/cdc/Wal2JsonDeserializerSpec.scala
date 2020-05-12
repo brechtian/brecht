@@ -35,13 +35,13 @@ class Wal2JsonDeserializerSpec extends AnyFunSuite with matchers.should.Matchers
     wal2JsonR00t.timestamp shouldBe an[Instant]
     wal2JsonR00t.change.size shouldBe 1
     val change = wal2JsonR00t.change.head
-    change.kind shouldBe "insert"
+    change shouldBe an[Insert]
     change.schema shouldBe "public"
     change.table shouldBe "users"
-    change.columnNames shouldBe List("id", "name")
-    change.columnTypes shouldBe List("integer", "character varying(255)")
-    change.columnValues shouldBe List("1", "Hello")
-    change.oldKeys shouldBe OldKeys()
+    val insert = change.asInstanceOf[Insert]
+    insert.columnNames shouldBe List("id", "name")
+    insert.columnTypes shouldBe List("integer", "character varying(255)")
+    insert.columnValues shouldBe List("1", "Hello")
   }
 
   test("Can deserialize a more complicated Wal2Json output from insert") {
@@ -71,14 +71,14 @@ class Wal2JsonDeserializerSpec extends AnyFunSuite with matchers.should.Matchers
     wal2JsonR00t.timestamp shouldBe an[Instant]
     wal2JsonR00t.change.size shouldBe 1
     val change = wal2JsonR00t.change.head
-    change.kind shouldBe "insert"
+    change shouldBe an[Insert]
     change.schema shouldBe "public"
     change.table shouldBe "users"
-    change.columnNames shouldBe List("id", "name", "is_person", "tags", "other_names")
-    change.columnTypes.size shouldBe 5
-    change.columnValues.size shouldBe 5
-    change.columnValues shouldBe List("1", "Seb", "true", "null", "{Sebastian}")
-    change.oldKeys shouldBe OldKeys()
+    val insert = change.asInstanceOf[Insert]
+    insert.columnNames shouldBe List("id", "name", "is_person", "tags", "other_names")
+    insert.columnTypes.size shouldBe 5
+    insert.columnValues.size shouldBe 5
+    insert.columnValues shouldBe List("1", "Seb", "true", "null", "{Sebastian}")
   }
 
   test("Can deserialize Wal2Json output from delete") {
@@ -121,15 +121,14 @@ class Wal2JsonDeserializerSpec extends AnyFunSuite with matchers.should.Matchers
     wal2JsonR00t.timestamp shouldBe an[Instant]
     wal2JsonR00t.change.size shouldBe 1
     val change = wal2JsonR00t.change.head
-    change.kind shouldBe "delete"
+    change shouldBe an[Delete]
     change.schema shouldBe "public"
     change.table shouldBe "users"
-    change.columnNames shouldBe Nil
-    change.columnTypes shouldBe Nil
-    change.columnValues shouldBe Nil
-    change.oldKeys.keyValues shouldBe List("1", "Sebastian", "true", "{Sebastian}")
-    change.oldKeys.keyNames shouldBe List("id", "name", "is_person", "other_names")
-    change.oldKeys.keyTypes should have size 4
+    val delete = change.asInstanceOf[Delete]
+
+    delete.oldKeys.keyValues shouldBe List("1", "Sebastian", "true", "{Sebastian}")
+    delete.oldKeys.keyNames shouldBe List("id", "name", "is_person", "other_names")
+    delete.oldKeys.keyTypes should have size 4
 
   }
 

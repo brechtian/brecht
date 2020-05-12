@@ -64,16 +64,15 @@ case class ChangeDataCapture(postgreSQLInstance: PostgreSQLInstance)(implicit sy
 
   def source(settings: PgCdcSourceSettings): Source[ChangeSet, NotUsed] = {
     implicit val timeout = akka.util.Timeout(3.seconds)
+    import settings._
     Source
       .unfoldResourceAsync[List[ChangeSet], NotUsed](
         create = () => {
-          import settings._
           (postgreSQLActor.ask[Done](ref => Start(slotName, plugin.name, createSlotOnStart, ref)))
             .map(_ => NotUsed)
         },
         read = _ => {
           def read() = {
-            import settings._
             (postgreSQLActor.ask[ChangeSetList](ref => GetChanges(
               slotName,
               mode,
@@ -86,7 +85,6 @@ case class ChangeDataCapture(postgreSQLInstance: PostgreSQLInstance)(implicit sy
           delayed(settings.pollInterval).flatMap(_ => read())
         },
         close = _ => {
-          import settings._
           postgreSQLActor ! Stop(
             Some(pollInterval.+(250.milliseconds)),
             slotName,

@@ -11,7 +11,7 @@ private[cdc] object Wal2Json {
 
   import spray.json._
 
-  case class OldKeys(keyNames: List[String] = Nil, keyTypes: List[String] = Nil, keyValues: List[String] = Nil)
+  case class OldKeys(keyNames: List[String], keyTypes: List[String], keyValues: List[String])
 
   implicit object OldKeysJsonReader extends RootJsonReader[OldKeys] {
     override def read(json: JsValue): OldKeys = {
@@ -41,15 +41,29 @@ private[cdc] object Wal2Json {
     }
   }
 
-  case class Change(
-      kind: String,
+  case class Insert(
       schema: String,
       table: String,
-      columnNames: List[String] = Nil,
-      columnTypes: List[String] = Nil,
-      columnValues: List[String] = Nil,
-      oldKeys: OldKeys = OldKeys()
-  )
+      columnNames: List[String],
+      columnTypes: List[String],
+      columnValues: List[String]
+  ) extends Change
+
+  case class Update(
+      schema: String,
+      table: String,
+      columnNames: List[String],
+      columnTypes: List[String],
+      columnValues: List[String],
+      oldKeys: OldKeys
+  ) extends Change
+
+  case class Delete(schema: String, table: String, oldKeys: OldKeys) extends Change
+
+  sealed trait Change {
+    val schema: String
+    val table: String
+  }
 
   implicit object ChangeJsonReader extends RootJsonReader[Change] {
 
@@ -72,7 +86,7 @@ private[cdc] object Wal2Json {
       var columnNames = List.empty[String]
       var columnValues = List.empty[String]
       var columnTypes = List.empty[String]
-      var oldKeys = OldKeys()
+      var oldKeys = OldKeys(Nil, Nil, Nil)
 
       jsObject.fields.foreach {
         case ("columnnames", JsArray(columnNamesJsArray)) =>
@@ -92,7 +106,17 @@ private[cdc] object Wal2Json {
         case _ => // ignore
       }
 
-      Change(kind, schema, table, columnNames, columnTypes, columnValues, oldKeys)
+      kind match {
+        case "insert" =>
+          Insert(schema, table, columnNames, columnTypes, columnValues)
+        case "delete" =>
+          Delete(schema, table, oldKeys)
+        case "update" =>
+          Update(schema, table, columnNames, columnTypes, columnValues, oldKeys)
+        case _ =>
+          // TODO: handle truncate ?
+          deserializationError(s"Error when deserializing Wal2Json, kind ${kind} not known")
+      }
 
     }
   }
@@ -167,18 +191,19 @@ private[cdc] object Wal2JsonPlugin extends LogDecodPlugin {
         case item if !colsToIgnorePerTable.get(item.table).exists(p => p.contains("*")) =>
           val colsToIgnoreForThisTable: List[String] = colsToIgnorePerTable.getOrElse(item.table, Nil)
 
-          val newData = buildMap(item.columnNames, item.columnValues, colsToIgnoreForThisTable)
-          val newSchema = buildMap(item.columnNames, item.columnTypes, colsToIgnoreForThisTable)
-          val oldData = buildMap(item.oldKeys.keyNames, item.oldKeys.keyValues, colsToIgnoreForThisTable)
-          val oldSchema = buildMap(item.oldKeys.keyNames, item.oldKeys.keyTypes, colsToIgnoreForThisTable)
-
-          item.kind match {
-            case "insert" =>
-              RowInserted(item.schema, item.table, lsn, txId, data = newData, schema = newSchema)
-            case "update" =>
+          item match {
+            case Insert(schema, table, columnNames, columnTypes, columnValues) =>
+              val newData = buildMap(columnNames, columnValues, colsToIgnoreForThisTable)
+              val newSchema = buildMap(columnNames, columnTypes, colsToIgnoreForThisTable)
+              RowInserted(schema, table, lsn, txId, data = newData, schema = newSchema)
+            case Update(schema, table, columnNames, columnTypes, columnValues, oldKeys) =>
+              val newData = buildMap(columnNames, columnValues, colsToIgnoreForThisTable)
+              val newSchema = buildMap(columnNames, columnTypes, colsToIgnoreForThisTable)
+              val oldData = buildMap(oldKeys.keyNames, oldKeys.keyValues, colsToIgnoreForThisTable)
+              val oldSchema = buildMap(oldKeys.keyNames, oldKeys.keyTypes, colsToIgnoreForThisTable)
               RowUpdated(
-                item.schema,
-                item.table,
+                schema,
+                table,
                 lsn,
                 txId,
                 dataOld = oldData,
@@ -186,8 +211,11 @@ private[cdc] object Wal2JsonPlugin extends LogDecodPlugin {
                 dataNew = newData,
                 schemaNew = newSchema
               )
-            case "delete" =>
-              RowDeleted(item.schema, item.table, lsn, txId, data = oldData, schema = oldSchema)
+            case Delete(schema, table, oldKeys) =>
+              val oldData = buildMap(oldKeys.keyNames, oldKeys.keyValues, colsToIgnoreForThisTable)
+              val oldSchema = buildMap(oldKeys.keyNames, oldKeys.keyTypes, colsToIgnoreForThisTable)
+              RowDeleted(schema, table, lsn, txId, data = oldData, schema = oldSchema)
+
           }
       }
     )
