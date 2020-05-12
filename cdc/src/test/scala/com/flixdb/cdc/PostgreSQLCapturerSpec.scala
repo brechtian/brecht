@@ -98,6 +98,7 @@ abstract class PostgreSQLCapturerSpec
 
     "capture changes to a table with numeric / character / array columns" in {
 
+      truncateCustomers(conn)
       setUpLogicalDecodingSlot(conn, "scalatest_1", plugin.name)
 
       log.info("inserting data into customers table")
@@ -264,6 +265,8 @@ abstract class PostgreSQLCapturerSpec
 
     "capture changes to a table with jsonb columns" in {
 
+      truncateSales(conn)
+
       setUpLogicalDecodingSlot(conn, "scalatest_2", plugin.name)
 
       val dataSource = new HikariDataSource(cfg)
@@ -316,6 +319,8 @@ abstract class PostgreSQLCapturerSpec
     }
 
     "capture changes to a table with xml columns" in {
+
+      truncatePurchaseOrders(conn)
 
       setUpLogicalDecodingSlot(conn, "scalatest_3", plugin.name)
 
@@ -389,6 +394,8 @@ abstract class PostgreSQLCapturerSpec
 
     "be able to deal with bytea columns" in {
 
+      truncateImages(conn)
+
       setUpLogicalDecodingSlot(conn, "scalatest_4", plugin.name)
 
       val dataSource = new HikariDataSource(cfg)
@@ -439,6 +446,8 @@ abstract class PostgreSQLCapturerSpec
 
     "be able to deal with null columns" in {
 
+      truncateEmployees(conn)
+
       setUpLogicalDecodingSlot(conn, "scalatest_5", plugin.name)
 
       val dataSource = new HikariDataSource(cfg)
@@ -482,6 +491,8 @@ abstract class PostgreSQLCapturerSpec
     }
 
     "be able to get both old version / new version of a row - in case of an update operation on a table with replica identity set to full" in {
+
+      truncateWeather(conn)
 
       setUpLogicalDecodingSlot(conn, "scalatest_6", plugin.name)
 
@@ -529,6 +540,9 @@ abstract class PostgreSQLCapturerSpec
 
     "be able to ignore tables and columns" in {
 
+      truncateSales(conn)
+      truncateEmployees(conn)
+
       setUpLogicalDecodingSlot(conn, "scalatest_7", plugin.name)
 
       val dataSource = new HikariDataSource(cfg)
@@ -575,6 +589,8 @@ abstract class PostgreSQLCapturerSpec
     }
 
     "be able to work in 'at-least-once' mode" in {
+
+      truncateEmployees(conn)
 
       val dataSource = new HikariDataSource(cfg)
 
