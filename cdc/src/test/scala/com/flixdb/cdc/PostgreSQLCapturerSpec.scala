@@ -588,7 +588,7 @@ abstract class PostgreSQLCapturerSpec
 
       var items = List[Change]()
 
-      val settings = PgCdcSourceSettings(
+      val cdcSourceSettings = PgCdcSourceSettings(
         slotName = slotName,
         dropSlotOnFinish = true,
         closeDataSourceOnFinish = true,
@@ -596,14 +596,16 @@ abstract class PostgreSQLCapturerSpec
         mode = Modes.Peek
       )
 
+      val cdcAckFlowSettings = PgCdcAckSettings(slotName)
+
       val killSwitch: UniqueKillSwitch =
         cdc
-          .source(settings)
+          .source(cdcSourceSettings)
           .mapConcat(_.changes)
           .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
           .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
           .map(ch => (ch, AckLogSeqNum(ch.commitLogSeqNum)))
-          .via(cdc.ackFlow(PgCdcAckSettings(slotName)))
+          .via(cdc.ackFlow(cdcAckFlowSettings))
           .wireTap((item: (Change, AckLogSeqNum)) => items = item._1 +: items)
           .viaMat(KillSwitches.single)(Keep.right)
           .to(Sink.ignore)
