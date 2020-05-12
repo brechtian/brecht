@@ -7,6 +7,12 @@ import org.postgresql.util.PGobject
 /* for testing */
 trait FakeDb {
 
+  def truncateTable(conn: Connection, tableName: String): Unit = {
+    val st = conn.prepareStatement(s"TRUNCATE $tableName")
+    st.execute()
+    st.close()
+  }
+
   def createCustomersTable(conn: Connection): Unit = {
     val createStatement =
       conn.prepareStatement("""
@@ -17,11 +23,14 @@ trait FakeDb {
                               |  email VARCHAR(255) NOT NULL,
                               |  tags TEXT[] NOT NULL,
                               |  PRIMARY KEY(id)
-                              |);
-        """.stripMargin)
+                              |);""".stripMargin)
 
     createStatement.execute()
     createStatement.close()
+  }
+
+  def truncateCustomers(conn: Connection): Unit = {
+    truncateTable(conn, "customers")
   }
 
   def createSalesTable(conn: Connection): Unit = {
@@ -30,10 +39,13 @@ trait FakeDb {
                               |CREATE TABLE sales (
                               | id SERIAL NOT NULL PRIMARY KEY,
                               | info JSONB NOT NULL
-                              |);
-        """.stripMargin)
+                              |);""".stripMargin)
     createStatement.execute()
     createStatement.close()
+  }
+
+  def truncateSales(conn: Connection): Unit = {
+    truncateTable(conn, "sales")
   }
 
   def createPurchaseOrdersTable(conn: Connection): Unit = {
@@ -41,10 +53,13 @@ trait FakeDb {
                                      |CREATE TABLE purchase_orders (
                                      | id SERIAL NOT NULL PRIMARY KEY,
                                      | info XML NOT NULL
-                                     | );
-      """.stripMargin)
+                                     | );""".stripMargin)
     st.execute()
     st.close()
+  }
+
+  def truncatePurchaseOrders(conn: Connection): Unit = {
+    truncateTable(conn, "purchase_orders")
   }
 
   def createEmployeesTable(conn: Connection): Unit = {
@@ -54,10 +69,13 @@ trait FakeDb {
                                      | name VARCHAR(255) NOT NULL,
                                      | position VARCHAR(255) DEFAULT NULL
                                      |);
-                                     |
-      """.stripMargin)
+                                     |""".stripMargin)
     st.execute()
     st.close()
+  }
+
+  def truncateEmployees(conn: Connection): Unit = {
+    truncateTable(conn, "employees")
   }
 
   def createImagesTable(conn: Connection): Unit = {
@@ -65,10 +83,13 @@ trait FakeDb {
                                      |CREATE TABLE images(
                                      | id serial NOT NULL PRIMARY KEY,
                                      | image BYTEA NOT NULL
-                                     |);
-      """.stripMargin)
+                                     |);""".stripMargin)
     st.execute()
     st.close()
+  }
+
+  def truncateImages(conn: Connection): Unit = {
+    truncateTable(conn, "images")
   }
 
   def createWeatherTable(conn: Connection): Unit = {
@@ -77,14 +98,17 @@ trait FakeDb {
                                                 | id serial NOT NULL PRIMARY KEY,
                                                 | city VARCHAR(255) NOT NULL,
                                                 | weather VARCHAR(255) NOT NULL
-                                                |);
-      """.stripMargin)
+                                                |);""".stripMargin)
     createTableSt.execute()
     createTableSt.close()
 
     val alterTableSt = conn.prepareStatement("ALTER TABLE \"WEATHER\" REPLICA IDENTITY FULL")
     alterTableSt.execute()
     alterTableSt.close()
+  }
+
+  def truncateWeather(conn: Connection): Unit = {
+    truncateTable(conn, "\"WEATHER\"")
   }
 
   def dropTable(name: String, conn: Connection): Unit = {

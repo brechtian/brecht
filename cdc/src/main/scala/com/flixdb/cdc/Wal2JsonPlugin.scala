@@ -13,34 +13,6 @@ private[cdc] object Wal2Json {
 
   case class OldKeys(keyNames: List[String], keyTypes: List[String], keyValues: List[String])
 
-  implicit object OldKeysJsonReader extends RootJsonReader[OldKeys] {
-    override def read(json: JsValue): OldKeys = {
-      val requiedFields = List("keynames", "keytypes", "keyvalues")
-      json.asJsObject.getFields(requiedFields: _*) match {
-        case Seq(
-            JsArray(keyNamesJsArray),
-            JsArray(keyTypesJsArray),
-            JsArray(keyValuesJsArray)
-            ) =>
-          OldKeys(
-            keyNames = keyNamesJsArray.collect { case JsString(s: String) => s }.toList,
-            keyTypes = keyTypesJsArray.collect { case JsString(s: String) => s }.toList,
-            keyValues = keyValuesJsArray.collect {
-              case JsNumber(n)  => n.toString()
-              case JsNull       => "null"
-              case JsString(s)  => s
-              case JsBoolean(b) => b.toString
-              case _            => deserializationError("Error when deserializing Wal2Json 'keyvalues'.")
-            }.toList
-          )
-        case _ =>
-          deserializationError(
-            s"Error when deserializing Wal2Json 'oldkeys'. Required fields: ${requiedFields.mkString(",")}"
-          )
-      }
-    }
-  }
-
   case class Insert(
       schema: String,
       table: String,
@@ -63,6 +35,34 @@ private[cdc] object Wal2Json {
   sealed trait Change {
     val schema: String
     val table: String
+  }
+
+  implicit object OldKeysJsonReader extends RootJsonReader[OldKeys] {
+    override def read(json: JsValue): OldKeys = {
+      val requiredFields = List("keynames", "keytypes", "keyvalues")
+      json.asJsObject.getFields(requiredFields: _*) match {
+        case Seq(
+            JsArray(keyNamesJsArray),
+            JsArray(keyTypesJsArray),
+            JsArray(keyValuesJsArray)
+            ) =>
+          OldKeys(
+            keyNames = keyNamesJsArray.collect { case JsString(s: String) => s }.toList,
+            keyTypes = keyTypesJsArray.collect { case JsString(s: String) => s }.toList,
+            keyValues = keyValuesJsArray.collect {
+              case JsNumber(n)  => n.toString()
+              case JsNull       => "null"
+              case JsString(s)  => s
+              case JsBoolean(b) => b.toString
+              case _            => deserializationError("Error when deserializing Wal2Json 'keyvalues'.")
+            }.toList
+          )
+        case _ =>
+          deserializationError(
+            s"Error when deserializing Wal2Json 'oldkeys'. Required fields: ${requiredFields.mkString(",")}"
+          )
+      }
+    }
   }
 
   implicit object ChangeJsonReader extends RootJsonReader[Change] {
@@ -171,7 +171,7 @@ private[cdc] object Wal2JsonPlugin extends LogDecodPlugin {
     }
   }
 
-  private[cdc] def buildMap(names: List[String], values: List[String], colsToIgnore: List[String]) = {
+  private[cdc] def zipListsIntoMap(names: List[String], values: List[String], colsToIgnore: List[String]) = {
     val initial = names.zip(values).toMap
     val result = filterOutColumns(colsToIgnore, initial)
     result
@@ -193,14 +193,14 @@ private[cdc] object Wal2JsonPlugin extends LogDecodPlugin {
 
           item match {
             case Insert(schema, table, columnNames, columnTypes, columnValues) =>
-              val newData = buildMap(columnNames, columnValues, colsToIgnoreForThisTable)
-              val newSchema = buildMap(columnNames, columnTypes, colsToIgnoreForThisTable)
+              val newData = zipListsIntoMap(columnNames, columnValues, colsToIgnoreForThisTable)
+              val newSchema = zipListsIntoMap(columnNames, columnTypes, colsToIgnoreForThisTable)
               RowInserted(schema, table, lsn, txId, data = newData, schema = newSchema)
             case Update(schema, table, columnNames, columnTypes, columnValues, oldKeys) =>
-              val newData = buildMap(columnNames, columnValues, colsToIgnoreForThisTable)
-              val newSchema = buildMap(columnNames, columnTypes, colsToIgnoreForThisTable)
-              val oldData = buildMap(oldKeys.keyNames, oldKeys.keyValues, colsToIgnoreForThisTable)
-              val oldSchema = buildMap(oldKeys.keyNames, oldKeys.keyTypes, colsToIgnoreForThisTable)
+              val newData = zipListsIntoMap(columnNames, columnValues, colsToIgnoreForThisTable)
+              val newSchema = zipListsIntoMap(columnNames, columnTypes, colsToIgnoreForThisTable)
+              val oldData = zipListsIntoMap(oldKeys.keyNames, oldKeys.keyValues, colsToIgnoreForThisTable)
+              val oldSchema = zipListsIntoMap(oldKeys.keyNames, oldKeys.keyTypes, colsToIgnoreForThisTable)
               RowUpdated(
                 schema,
                 table,
@@ -212,8 +212,8 @@ private[cdc] object Wal2JsonPlugin extends LogDecodPlugin {
                 schemaNew = newSchema
               )
             case Delete(schema, table, oldKeys) =>
-              val oldData = buildMap(oldKeys.keyNames, oldKeys.keyValues, colsToIgnoreForThisTable)
-              val oldSchema = buildMap(oldKeys.keyNames, oldKeys.keyTypes, colsToIgnoreForThisTable)
+              val oldData = zipListsIntoMap(oldKeys.keyNames, oldKeys.keyValues, colsToIgnoreForThisTable)
+              val oldSchema = zipListsIntoMap(oldKeys.keyNames, oldKeys.keyTypes, colsToIgnoreForThisTable)
               RowDeleted(schema, table, lsn, txId, data = oldData, schema = oldSchema)
 
           }
