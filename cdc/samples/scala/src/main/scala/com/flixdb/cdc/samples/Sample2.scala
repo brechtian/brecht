@@ -4,10 +4,11 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.{Keep, Sink}
-import com.flixdb.cdc.{Change, Modes, PgCdcSourceSettings, PostgreSQLInstance, RowDeleted, RowInserted, RowUpdated}
+import com.flixdb.cdc._
 import com.flixdb.cdc.scaladsl._
 import com.lonelyplanet.prometheus.api.MetricsEndpoint
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
+import io.prometheus.client.hotspot.DefaultExports
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
@@ -77,13 +78,10 @@ object Sample2 extends App {
       })
       .run()
 
-  import io.prometheus.client.CollectorRegistry
-  import io.prometheus.client.dropwizard.DropwizardExports
 
-  CollectorRegistry.defaultRegistry.register(
-    new DropwizardExports(ChangeDataCapture.metricsRegistry))
+  DefaultExports.register(ChangeDataCapture.registry)
 
-  val metricsEndpoint = new MetricsEndpoint(CollectorRegistry.defaultRegistry)
+  val metricsEndpoint = new MetricsEndpoint(ChangeDataCapture.registry)
   val routes = metricsEndpoint.routes
   val bindingFuture = Http().bindAndHandle(routes, interface = "0.0.0.0", port = 9091)
 
@@ -99,6 +97,7 @@ object Sample2 extends App {
 
   logger.info("Using the KillSwitch")
   killSwitch.shutdown()
+
 
   bindingFuture
     .flatMap(_.unbind()) // trigger unbinding from the port

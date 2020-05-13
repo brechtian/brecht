@@ -4,6 +4,8 @@ import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.flixdb.core.Dtos.{Event, EventList, PostEvent, PostEventList}
 import spray.json.{DefaultJsonProtocol, JsArray, JsNumber, JsObject, JsString, _}
 
+import scala.language.implicitConversions
+
 object Dtos {
 
   final case class Event(
@@ -88,6 +90,40 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
           deserializationError("Invalid JSON: you may be missing some fields, see documentation")
       }
     }
+  }
+
+}
+
+object DtoConversions {
+
+  implicit def eventEnvelopeToEvent(eventEnvelope: EventEnvelope): Event = {
+    Event(
+      eventId = eventEnvelope.eventId,
+      subStreamId = eventEnvelope.subStreamId,
+      eventType = eventEnvelope.eventType,
+      sequenceNum = eventEnvelope.sequenceNum,
+      data = eventEnvelope.data,
+      stream = eventEnvelope.stream,
+      tags = eventEnvelope.tags,
+      timestamp = eventEnvelope.timestamp,
+      snapshot = eventEnvelope.snapshot
+    )
+  }
+
+  def toEventEnvelopes(stream: String, subStreamId: String, postEventList: PostEventList) = {
+    postEventList.events.map(p =>
+      EventEnvelope(
+        eventId = p.eventId,
+        subStreamId = subStreamId,
+        eventType = p.eventType,
+        sequenceNum = p.sequenceNum,
+        data = p.data,
+        stream = stream,
+        tags = p.tags.getOrElse(Nil),
+        timestamp = 0,
+        snapshot = false
+      )
+    )
   }
 
 }

@@ -43,7 +43,11 @@ val scalaTest = "org.scalatest" %% "scalatest" % "3.1.1"
 val testcontainers = "org.testcontainers" % "testcontainers" % "1.14.1"
 val testContainersKafka = "org.testcontainers" % "kafka" % "1.12.4"
 val simulacrum = "org.typelevel" %% "simulacrum" % "1.0.0"
-val dropWizardMetricsCore = "io.dropwizard.metrics" % "metrics-core" % "4.1.2"
+val lithium = "com.swissborg" %% "lithium" % "0.11.2"
+
+val prometheusClient = "io.prometheus" % "simpleclient" % "0.8.1"
+val prometheusHotspot = "io.prometheus" % "simpleclient_hotspot" % "0.8.1"
+val prometheusHttpServer = "io.prometheus" % "simpleclient_httpserver" % "0.8.1"
 
 lazy val root = (project in file("."))
   .aggregate(core, pb, cdc)
@@ -64,12 +68,14 @@ lazy val core = {
         logback,
         sprayJson,
         json4sJackson,
+        akkaActorTyped,
         akkaSlf4j,
         akkaHttp,
         akkaHttpSprayJson,
         akkaStream,
         akkaStreamKafka,
         akkaCluster,
+        lithium,
         akkaClusterTyped,
         akkaClusterTools,
         akkaDistributedData,
@@ -77,6 +83,9 @@ lazy val core = {
         postgreSQLDriver,
         hikariCP,
         simulacrum,
+        prometheusClient,
+        prometheusHotspot,
+        prometheusHttpServer,
         scalaTest % Test,
         testContainersKafka % Test,
         akkaStreamTestKit % Test,
@@ -87,6 +96,7 @@ lazy val core = {
 }
 
 lazy val pb = (project in file("pb")).settings(
+  libraryDependencies += "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
   publish / skip := true,
   crossScalaVersions := Nil,
   PB.targets in Compile := Seq(
@@ -109,7 +119,9 @@ lazy val cdc = {
         akkaStream,
         akkaActorTyped,
         postgreSQLDriver,
-        dropWizardMetricsCore,
+        prometheusClient,
+        prometheusHotspot,
+        prometheusHttpServer,
         akkaSlf4j % Test,
         logback % Test,
         hikariCP % Test,

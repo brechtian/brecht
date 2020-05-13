@@ -1,18 +1,15 @@
 package com.flixdb.core
 
-import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
+import akka.actor.typed._
 import com.typesafe.config.Config
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 
-object HikariCP extends ExtensionId[HikariCPImpl] with ExtensionIdProvider {
-
-  override def lookup: HikariCP.type = HikariCP
-
-  override def createExtension(system: ExtendedActorSystem) = new HikariCPImpl(system)
-
+object HikariCP extends ExtensionId[HikariCP] {
+  override def createExtension(system: ActorSystem[_]): HikariCP =
+    new HikariCP(system)
 }
 
-class HikariCPImpl(system: ExtendedActorSystem) extends Extension {
+class HikariCP(system: ActorSystem[_]) extends Extension {
 
   private def buildHikariConfig(poolName: String): HikariConfig = {
     val typeSafeConfig: Config = system.settings.config

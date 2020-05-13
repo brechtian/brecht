@@ -1,42 +1,58 @@
 package com.flixdb.core
 
-import akka.actor._
-import com.flixdb.core.protobuf.read._
-import com.flixdb.core.protobuf.write._
+import akka.Done
+import akka.actor.typed._
+import akka.actor.typed.scaladsl.AskPattern._
+import com.flixdb.core.postgresql.PostgreSQL
+import com.flixdb.core.postgresql.PostgreSQLActor._
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
-object EventStoreController extends ExtensionId[EventStoreControllerImpl] with ExtensionIdProvider {
-
-  override def lookup: EventStoreController.type = EventStoreController
-
-  override def createExtension(system: ExtendedActorSystem) = new EventStoreControllerImpl(system)
-
+object EventStoreController extends ExtensionId[EventStoreController] {
+  override def createExtension(system: ActorSystem[_]): EventStoreController =
+    new EventStoreController(system)
 }
 
-class EventStoreControllerImpl(system: ExtendedActorSystem) extends Extension {
+class EventStoreController(system: ActorSystem[_]) extends Extension {
 
-  private val cdc = CdcStreamingToKafka(system)
-  private val entitySharding = SubStreamSharding(system)
+  private val postgreSQL = PostgreSQL(system)
 
-  private val entities = entitySharding.subStreams
+  implicit val timeout = akka.util.Timeout(3.seconds)
 
-  def getEvents(namespace: String, stream: String, subStreamId: String): Future[PbGetEventsResult] = {
-    import scala.concurrent.duration._
-    implicit val timeout = akka.util.Timeout(1.seconds) // TODO: move to configuration
-    val pbMsg = PbGetEventsRequest.defaultInstance
-      .withNamespace(namespace)
-      .withStream(stream)
-      .withSubStreamId(subStreamId)
-    import akka.pattern.ask
-    (entities ? pbMsg).mapTo[PbGetEventsResult]
+  implicit val sys = system
+
+  implicit val ec = system.executionContext
+
+  def createNamespace(namespace: String): Future[Done] = {
+    val askResult = postgreSQL.router.ask[CreateTablesResult](ref => CreateTablesIfNotExists(namespace, ref))
+    askResult.map(_.result).flatMap {
+      case Success(value: Done)     => Future.successful(value)
+      case Failure(exception: Throwable) => Future.failed(exception)
+    }
   }
 
-  def publishEvents(pbPublishEventsRequest: PbPublishEventsRequest): Future[PbPublishEventsResult] = {
-    import scala.concurrent.duration._
-    implicit val timeout = akka.util.Timeout(1.seconds) // TODO: move to configuration
-    import akka.pattern.ask
-    (entities ? pbPublishEventsRequest).mapTo[PbPublishEventsResult]
+  def getEvents(namespace: String, stream: String, subStreamId: String): Future[List[EventEnvelope]] = {
+    val askResult = postgreSQL.router.ask[GetEventsResult](ref => GetEventsRequest(namespace, stream, subStreamId, ref))
+    askResult.map(_.eventEnvelopes).flatMap {
+      case Success(value)     => Future.successful(value)
+      case Failure(exception) => Future.failed(exception)
+    }
+  }
+
+  def publishEvents(
+      namespace: String,
+      stream: String,
+      subStreamId: String,
+      eventEnvelopes: List[EventEnvelope]
+  ): Future[Done] = {
+    val askResult =
+      postgreSQL.router.ask[PublishEventsResult](ref => PublishEventsRequest(namespace, eventEnvelopes, ref))
+    askResult.map(_.result).flatMap {
+      case Success(value: Done)          => Future.successful(result = value)
+      case Failure(exception: Throwable) => Future.failed(exception)
+    }
   }
 
 }

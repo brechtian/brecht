@@ -174,30 +174,26 @@ source
 
 ## Monitoring
 
-This module uses DropWizard metrics as an instrumentation library. Most of our users tend to use 
-the Prometheus/Grafana combo. To export the DropWizard metrics to Prometheus use the following code: 
-
-```
-import io.prometheus.client.CollectorRegistry
-import io.prometheus.client.dropwizard.DropwizardExports
-import com.lonelyplanet.prometheus.api.MetricsEndpoint
-
-CollectorRegistry.defaultRegistry.register(
-  new DropwizardExports(ChangeDataCapture.metricsRegistry))
-
-val metricsEndpoint = new MetricsEndpoint(CollectorRegistry.defaultRegistry)
-val routes = metricsEndpoint.routes
-val bindingFuture = Http().bindAndHandle(routes, interface = "0.0.0.0", port = 9091)
-```
-
-You'll need to add the [Prometheus Java Simpleclient Dropwizard](https://mvnrepository.com/artifact/io.prometheus/simpleclient_dropwizard) dependency
-as well as the [prometheus-akka-http](https://github.com/lonelyplanet/prometheus-akka-http) 
-dependency.
+This module uses the Prometheus Java client for instrumentation purposes. Most of our users tend to use 
+Prometheus in conjunction with Grafana. We recommend the
+[prometheus-akka-http](https://github.com/lonelyplanet/prometheus-akka-http) for exposing
+a metrics endpoint. 
+In build.sbt:
 
 ```
 resolvers ++= Seq(Resolver.bintrayRepo("lonelyplanet", "maven"))
-val prometheusAkkaHttp = "com.lonelyplanet" %% "prometheus-akka-http" % "0.5.0"
-val prometheusDropWizard = "io.prometheus" % "simpleclient_dropwizard" % "0.8.1"
+val prometheusAkkaHttp = "com.lonelyplanet" %% "prometheus-akka-http" % "0.5.0" // or whatever the latest version is
+```
+
+In your main:
+
+```
+  DefaultExports.register(ChangeDataCapture.registry)
+
+  val metricsEndpoint = new MetricsEndpoint(ChangeDataCapture.registry)
+  val routes = metricsEndpoint.routes
+  val bindingFuture = Http().bindAndHandle(routes, interface = "0.0.0.0", port = 9091)
+
 ```
 
 We provide a Grafana dashboard that you can download [here](src/main/grafana/Dashboard.json). 
