@@ -5,6 +5,13 @@ Get Started
 
 Steps:
 
+Clone this repo.
+
+```
+cd flixdb/cdc/samples/scala
+sbt compile
+```
+
 Start a PostgreSQL container:
 ```
 docker run -p5432:5432 -it flixdb-docker-images.bintray.io/flixdb/postgresql:12.2 

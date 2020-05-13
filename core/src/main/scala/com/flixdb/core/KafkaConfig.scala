@@ -2,23 +2,20 @@ package com.flixdb.core
 
 import java.util.Properties
 
-import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
+import akka.actor.typed._
+import akka.actor.typed.scaladsl.adapter._
 import akka.kafka.{ConsumerSettings, ProducerSettings}
 import com.typesafe.config.Config
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 
 import scala.collection.mutable
 
-object KafkaConfig extends ExtensionId[KafkaConfigImpl] with ExtensionIdProvider {
-
-  override def lookup: KafkaConfig.type = KafkaConfig
-
-  override def createExtension(system: ExtendedActorSystem) =
-    new KafkaConfigImpl(system)
-
+object KafkaConfig extends ExtensionId[KafkaConfig] {
+  override def createExtension(system: ActorSystem[_]): KafkaConfig =
+    new KafkaConfig(system)
 }
 
-class KafkaConfigImpl(system: ExtendedActorSystem) extends Extension {
+class KafkaConfig(system: ActorSystem[_]) extends Extension {
 
   // This is "extra" config in the sense that there's already a lot of
   // default configuration under akka.kafka
@@ -41,12 +38,12 @@ class KafkaConfigImpl(system: ExtendedActorSystem) extends Extension {
   }
 
   def getProducerSettings: ProducerSettings[String, String] = {
-    ProducerSettings(system, new StringSerializer, new StringSerializer)
+    ProducerSettings(system.toClassic, new StringSerializer, new StringSerializer)
       .withProperties(extraConfigAsMap)
   }
 
   def getBaseConsumerSettings: ConsumerSettings[String, String] = {
-    ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
+    ConsumerSettings(system.toClassic, new StringDeserializer, new StringDeserializer)
       .withProperties(extraConfigAsMap)
   }
 

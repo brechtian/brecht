@@ -3,7 +3,6 @@ package com.flixdb.cdc
 import java.io.Closeable
 import java.sql.{Connection, PreparedStatement, ResultSet, Statement}
 
-import com.codahale.metrics.{SharedMetricRegistries, Timer}
 import javax.sql.DataSource
 import org.slf4j.LoggerFactory
 
@@ -27,7 +26,6 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
 
   private val log = LoggerFactory.getLogger(classOf[PostgreSQL])
 
-  val metricsRegistry = SharedMetricRegistries.getOrCreate("com.flixdb.cdc")
 
   def getConnection: Connection = {
     ds.getConnection()
@@ -136,8 +134,6 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
 
   def flush(slotName: String, upToLogSeqNum: String): Unit = {
 
-    val flushTimer: Timer = metricsRegistry.timer(s"flush")
-    val timerContext = flushTimer.time()
     var conn: Connection = null
     var statement: PreparedStatement = null
 
@@ -154,14 +150,13 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
     } finally {
       attemptCloseStatement(statement)
       attemptCloseConnection(conn)
-      timerContext.close()
     }
   }
 
   def pullChanges(mode: Mode, slotName: String, maxItems: Int): List[SlotChange] = {
 
-    val pullTimer: Timer = metricsRegistry.timer(s"pull")
-    val timerContext = pullTimer.time()
+
+
     var conn: Connection = null
     var pullChangesStatement: PreparedStatement = null
     var rs: ResultSet = null
@@ -192,7 +187,7 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
       attemptCloseResultSet(rs)
       attemptCloseStatement(pullChangesStatement)
       attemptCloseConnection(conn)
-      timerContext.close()
+
     }
   }
 

@@ -83,18 +83,18 @@ private[cdc] object Wal2Json {
           )
       }
 
-      var columnNames = List.empty[String]
-      var columnValues = List.empty[String]
-      var columnTypes = List.empty[String]
+      var colNames = List.empty[String]
+      var colValues = List.empty[String]
+      var colTypes = List.empty[String]
       var oldKeys = OldKeys(Nil, Nil, Nil)
 
       jsObject.fields.foreach {
-        case ("columnnames", JsArray(columnNamesJsArray)) =>
-          columnNames = columnNamesJsArray.collect { case JsString(s: String) => s }.toList
-        case ("columntypes", JsArray(columnTypesJsArray)) =>
-          columnTypes = columnTypesJsArray.collect { case JsString(s: String) => s }.toList
-        case ("columnvalues", JsArray(columnValuesJsArray)) =>
-          columnValues = columnValuesJsArray.collect {
+        case ("columnnames", JsArray(colNamesJsArray)) =>
+          colNames = colNamesJsArray.collect { case JsString(s: String) => s }.toList
+        case ("columntypes", JsArray(colTypesJsArray)) =>
+          colTypes = colTypesJsArray.collect { case JsString(s: String) => s }.toList
+        case ("columnvalues", JsArray(colValuesJsArray)) =>
+          colValues = colValuesJsArray.collect {
             case JsNumber(n)  => n.toString()
             case JsNull       => "null"
             case JsString(s)  => s
@@ -108,11 +108,11 @@ private[cdc] object Wal2Json {
 
       kind match {
         case "insert" =>
-          Insert(schema, table, columnNames, columnTypes, columnValues)
+          Insert(schema, table, colNames, colTypes, colValues)
         case "delete" =>
           Delete(schema, table, oldKeys)
         case "update" =>
-          Update(schema, table, columnNames, columnTypes, columnValues, oldKeys)
+          Update(schema, table, colNames, colTypes, colValues, oldKeys)
         case _ =>
           // TODO: handle truncate ?
           deserializationError(s"Error when deserializing Wal2Json, kind ${kind} not known")
@@ -171,7 +171,7 @@ private[cdc] object Wal2JsonPlugin extends LogDecodPlugin {
     }
   }
 
-  private[cdc] def zipListsIntoMap(names: List[String], values: List[String], colsToIgnore: List[String]) = {
+  private[cdc] def zipToMap(names: List[String], values: List[String], colsToIgnore: List[String]) = {
     val initial = names.zip(values).toMap
     val result = filterOutColumns(colsToIgnore, initial)
     result
@@ -189,32 +189,38 @@ private[cdc] object Wal2JsonPlugin extends LogDecodPlugin {
       instant = wal2JsonR00t.timestamp,
       changes = wal2JsonR00t.change.collect {
         case item if !colsToIgnorePerTable.get(item.table).exists(p => p.contains("*")) =>
-          val colsToIgnoreForThisTable: List[String] = colsToIgnorePerTable.getOrElse(item.table, Nil)
+          val colsToIgnore: List[String] = colsToIgnorePerTable.getOrElse(item.table, Nil)
 
           item match {
-            case Insert(schema, table, columnNames, columnTypes, columnValues) =>
-              val newData = zipListsIntoMap(columnNames, columnValues, colsToIgnoreForThisTable)
-              val newSchema = zipListsIntoMap(columnNames, columnTypes, colsToIgnoreForThisTable)
-              RowInserted(schema, table, lsn, txId, data = newData, schema = newSchema)
-            case Update(schema, table, columnNames, columnTypes, columnValues, oldKeys) =>
-              val newData = zipListsIntoMap(columnNames, columnValues, colsToIgnoreForThisTable)
-              val newSchema = zipListsIntoMap(columnNames, columnTypes, colsToIgnoreForThisTable)
-              val oldData = zipListsIntoMap(oldKeys.keyNames, oldKeys.keyValues, colsToIgnoreForThisTable)
-              val oldSchema = zipListsIntoMap(oldKeys.keyNames, oldKeys.keyTypes, colsToIgnoreForThisTable)
+            case Insert(schema, table, colNames, colTypes, colVales) =>
+              RowInserted(
+                schemaName = schema,
+                tableName = table,
+                commitLogSeqNum = lsn,
+                transactionId = txId,
+                data = zipToMap(colNames, colVales, colsToIgnore),
+                schema = zipToMap(colNames, colTypes, colsToIgnore)
+              )
+            case Update(schema, table, colNames, colTypes, colValues, oldKeys) =>
               RowUpdated(
-                schema,
-                table,
-                lsn,
-                txId,
-                dataOld = oldData,
-                schemaOld = oldSchema,
-                dataNew = newData,
-                schemaNew = newSchema
+                schemaName = schema,
+                tableName = table,
+                commitLogSeqNum = lsn,
+                transactionId = txId,
+                dataOld = zipToMap(oldKeys.keyNames, oldKeys.keyValues, colsToIgnore),
+                schemaOld = zipToMap(oldKeys.keyNames, oldKeys.keyTypes, colsToIgnore),
+                dataNew = zipToMap(colNames, colValues, colsToIgnore),
+                schemaNew = zipToMap(colNames, colTypes, colsToIgnore)
               )
             case Delete(schema, table, oldKeys) =>
-              val oldData = zipListsIntoMap(oldKeys.keyNames, oldKeys.keyValues, colsToIgnoreForThisTable)
-              val oldSchema = zipListsIntoMap(oldKeys.keyNames, oldKeys.keyTypes, colsToIgnoreForThisTable)
-              RowDeleted(schema, table, lsn, txId, data = oldData, schema = oldSchema)
+              RowDeleted(
+                schemaName = schema,
+                tableName = table,
+                commitLogSeqNum = lsn,
+                transactionId = txId,
+                data = zipToMap(oldKeys.keyNames, oldKeys.keyValues, colsToIgnore),
+                schema = zipToMap(oldKeys.keyNames, oldKeys.keyTypes, colsToIgnore)
+              )
 
           }
       }
