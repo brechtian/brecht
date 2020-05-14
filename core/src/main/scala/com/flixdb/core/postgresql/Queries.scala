@@ -3,13 +3,12 @@ package com.flixdb.core.postgresql
 import java.sql.{Connection, PreparedStatement, ResultSet, Statement}
 
 import akka.Done
-import akka.actor.ActorSystem
-import akka.actor.typed.scaladsl.adapter._
-import akka.event.LoggingAdapter
+import akka.actor.typed.ActorSystem
 import com.flixdb.core.{EventEnvelope, HikariCP}
 import com.zaxxer.hikari.HikariDataSource
 import io.prometheus.client.Histogram
 import org.postgresql.util.PGobject
+import org.slf4j.LoggerFactory
 
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -93,17 +92,17 @@ object PostgresSQLDataAccess {
 
 }
 
-class PostgresSQLDataAccess()(implicit system: ActorSystem) {
+class PostgresSQLDataAccess()(implicit system: ActorSystem[_]) {
 
   private[postgresql] def poolName = "postgresql-main-pool"
 
-  private[postgresql] val hikariDataSource: HikariDataSource = HikariCP(system.toTyped).startHikariDataSource(poolName)
+  private[postgresql] val hikariDataSource: HikariDataSource = HikariCP(system).startHikariDataSource(poolName)
 
-  private val logger: LoggingAdapter = akka.event.Logging(system, classOf[PostgresSQLDataAccess])
+  private val logger = LoggerFactory.getLogger(classOf[PostgresSQLDataAccess])
 
   import PostgresSQLDataAccess._
 
-  private val utils = new JdbcUtils(system)
+  private val utils = new JdbcUtils()
   import utils._
 
   def getMaximumPoolSize: Int = hikariDataSource.getMaximumPoolSize
@@ -120,7 +119,7 @@ class PostgresSQLDataAccess()(implicit system: ActorSystem) {
       Done
     } catch {
       case NonFatal(e) =>
-        logger.error(e, "Failed to connect to PostgreSQL instance")
+        logger.error("Failed to connect to PostgreSQL instance", e)
         throw e
     }
   }
@@ -160,7 +159,7 @@ class PostgresSQLDataAccess()(implicit system: ActorSystem) {
     } catch {
       case NonFatal(e) =>
         val ex = convertException(e)
-        logger.error(ex, s"Failed to save snapshot into table {}_events", tablePrefix)
+        logger.error(s"Failed to save snapshot into table ${tablePrefix}_events", e)
         attemptRollbackConnection(conn)
         throw ex
     } finally {
@@ -199,7 +198,7 @@ class PostgresSQLDataAccess()(implicit system: ActorSystem) {
     } catch {
       case NonFatal(e: Throwable) =>
         val ex = convertException(e)
-        logger.error(ex, "Failed to get events for sub stream with id {}", subStreamId)
+        logger.error(s"Failed to get events for sub stream with id $subStreamId", ex)
         throw ex
     } finally {
       attemptCloseResultSet(resultSet)
@@ -255,7 +254,7 @@ class PostgresSQLDataAccess()(implicit system: ActorSystem) {
           case NonFatal(e) =>
             val ex = convertException(e)
             val numEvents = eventEnvelopes.size
-            logger.error(ex, s"Failed to insert {} events into table {}_events", numEvents, tablePrefix)
+            logger.error(s"Failed to insert $numEvents events into table ${tablePrefix}_events", ex)
             attemptRollbackConnection(conn)
             throw ex
         } finally {
@@ -358,7 +357,7 @@ class PostgresSQLDataAccess()(implicit system: ActorSystem) {
     } catch {
       case NonFatal(e) =>
         val ex = convertException(e)
-        logger.error(ex, "Failed to create table {}_events", prefix)
+        logger.error(s"Failed to create table ${prefix}_events", ex)
         attemptRollbackConnection(conn)
         throw ex
     } finally {

@@ -2,7 +2,7 @@ package com.flixdb.core.postgresql
 
 import java.sql._
 
-import akka.actor.ActorSystem
+import org.slf4j.LoggerFactory
 
 import scala.util.{Failure, Try}
 
@@ -36,7 +36,7 @@ object SQLCompositeException {
 
 }
 
-final case class SQLCompositeException private (sqlException: SQLException, unrolled: List[SQLException])
+case class SQLCompositeException(sqlException: SQLException, unrolled: List[SQLException])
     extends SQLException(
       s"""Multiple exceptions were thrown (${unrolled.size}): ${SQLCompositeException
         .display(unrolled, Nil, 1)}"""
@@ -59,11 +59,11 @@ final case class SQLCompositeException private (sqlException: SQLException, unro
 
 }
 
-class JdbcUtils(system: ActorSystem) {
+class JdbcUtils {
 
   import scala.util.chaining._
 
-  private val logger = akka.event.Logging(system, classOf[JdbcUtils])
+  private val logger = LoggerFactory.getLogger(classOf[JdbcUtils])
 
   def convertException(e: Throwable): Throwable =
     e match {
@@ -80,7 +80,7 @@ class JdbcUtils(system: ActorSystem) {
       case Some(res) if !isClosed(res) =>
         Try(res.close()).tap {
           case Failure(e) =>
-            logger.error(e, "Failed to close resource: {}", resource.getClass.getName)
+            logger.error(s"Failed to close resource: ${resource.getClass.getName}", e)
           case _ =>
         }
       case _ => ()

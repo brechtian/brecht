@@ -3,9 +3,9 @@ package com.flixdb.core.postgresql
 import java.util.UUID.randomUUID
 
 import akka.actor.ActorSystem
-import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.adapter._
+import akka.actor.typed.{ActorRef, DispatcherSelector}
 import akka.testkit.TestKit
 import com.flixdb.core.EventEnvelope
 import com.flixdb.core.postgresql.PostgreSQLActor._
@@ -79,11 +79,20 @@ abstract class SnapshottingSpec
       .withFallback(ConfigFactory.load)
   )
 
+  implicit val typedSystem = system.toTyped
+
   val dataAccess = new PostgresSQLDataAccess()
 
-  implicit val actorSystem = system.toTyped
-
-  val postgreSQLActor: ActorRef[PostgreSQLActor.Request] = PostgreSQLActor.spawn(dataAccess)
+  val postgreSQLActor: ActorRef[PostgreSQLActor.Request] = {
+    val postgreSQLActor: ActorRef[PostgreSQLActor.Request] = {
+      system.spawn(
+        behavior = PostgreSQLActor.apply(dataAccess),
+        name = s"postgresql",
+        DispatcherSelector.fromConfig("blocking-io-dispatcher")
+      )
+    }
+    postgreSQLActor
+  }
 
   implicit val timeout = akka.util.Timeout(3.seconds)
 

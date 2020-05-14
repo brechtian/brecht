@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory
 import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.containers.{GenericContainer, KafkaContainer}
 import spray.json._
-
+import akka.actor.typed.scaladsl.adapter._
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
@@ -85,6 +85,7 @@ abstract class KafkaMigrationSpec
       .resolve()
       .withFallback(ConfigFactory.load)
   )
+  implicit val typedSystem = system.toTyped
 
   val kafkaSettings = KafkaConfig(system.toTyped)
 
