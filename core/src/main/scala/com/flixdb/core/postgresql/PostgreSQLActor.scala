@@ -1,8 +1,7 @@
 package com.flixdb.core.postgresql
 
 import akka.Done
-import akka.actor.typed.scaladsl.adapter._
-import akka.actor.typed.scaladsl.{Behaviors, Routers}
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors, Routers}
 import akka.actor.typed.{ActorRef, _}
 import com.flixdb.core.{EventEnvelope, FlixDbConfig}
 
@@ -60,33 +59,21 @@ object PostgreSQLActor {
     }
   }
 
-  def spawn(postgresSQLDataAccessLayer: PostgresSQLDataAccess)(implicit actorSystem: akka.actor.ActorSystem) =
-    actorSystem.spawn(
-      behavior = PostgreSQLActor.apply(postgresSQLDataAccessLayer),
-      name = s"postgresql",
-      DispatcherSelector.fromConfig("blocking-io-dispatcher")
+  def getRouter(
+      ctx: ActorContext[SpawnProtocol.Command]
+  ): ActorRef[PostgreSQLActor.Request] = {
+
+    val dataAccess = new PostgresSQLDataAccess()(ctx.system)
+    val config = FlixDbConfig(ctx.system)
+    val pool = Routers.pool(poolSize = config.concurrentRequests)(
+      Behaviors.supervise(PostgreSQLActor(dataAccess)).onFailure[Exception](SupervisorStrategy.restart)
     )
+    val blockingPool = pool.withRouteeProps(routeeProps = DispatcherSelector.fromConfig("blocking-io-dispatcher"))
 
-}
-
-object PostgreSQL extends ExtensionId[PostgreSQL] {
-  override def createExtension(system: ActorSystem[_]): PostgreSQL =
-    new PostgreSQL(system)
-}
-
-class PostgreSQL(system: ActorSystem[_]) extends Extension {
-  private implicit val classicSystem = system.toClassic
-
-  private val config = FlixDbConfig(system)
-  private val dataAccess = new PostgresSQLDataAccess()
-
-  private val pool = Routers.pool(poolSize = config.concurrentRequests)(
-    Behaviors.supervise(PostgreSQLActor(dataAccess)).onFailure[Exception](SupervisorStrategy.restart)
-  )
-
-  private val blockingPool = pool.withRouteeProps(routeeProps = DispatcherSelector.fromConfig("blocking-io-dispatcher"))
-
-  val router: ActorRef[PostgreSQLActor.Request] =
-    classicSystem.spawn(blockingPool, "worker-pool", DispatcherSelector.sameAsParent())
-
+    ctx.spawn(
+      behavior = blockingPool,
+      name = "worker-pool",
+      props = DispatcherSelector.sameAsParent
+    )
+  }
 }

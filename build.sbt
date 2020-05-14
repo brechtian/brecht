@@ -26,6 +26,7 @@ val sprayJson = "io.spray" %% "spray-json" % "1.3.5"
 val json4sJackson = "org.json4s" %% "json4s-jackson" % "3.6.7"
 val akkaSlf4j = "com.typesafe.akka" %% "akka-slf4j" % akkaVersion
 val akkaHttp = "com.typesafe.akka" %% "akka-http" % akkaHttpVersion
+val akkaHttpTestKit = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion
 val akkaHttpSprayJson = "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion
 val akkaActorTyped = "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion
 val akkaStream = "com.typesafe.akka" %% "akka-stream" % akkaVersion
@@ -37,6 +38,7 @@ val akkaClusterSharding = "com.typesafe.akka" %% "akka-cluster-sharding" % akkaV
 val akkaDistributedData = "com.typesafe.akka" %% "akka-distributed-data" % akkaVersion
 val fastparse = "com.lihaoyi" %% "fastparse" % "2.2.2"
 val jackartaXmlBindApi = "jakarta.xml.bind" % "jakarta.xml.bind-api" % "2.3.2"
+val akkaTypedTestKit = "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion
 val akkaTestKit = "com.typesafe.akka" %% "akka-testkit" % akkaVersion
 val akkaStreamTestKit = "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion
 val scalaTest = "org.scalatest" %% "scalatest" % "3.1.1"
@@ -89,7 +91,9 @@ lazy val core = {
         scalaTest % Test,
         testContainersKafka % Test,
         akkaStreamTestKit % Test,
-        akkaTestKit % Test
+        akkaTestKit % Test,
+        akkaTypedTestKit % Test,
+        akkaHttpTestKit % Test
       )
     )
     .dependsOn(pb, cdc)
