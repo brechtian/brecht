@@ -213,7 +213,9 @@ private[cdc] object TestDecodingPlugin extends LogDecodPlugin {
         instant = t.toInstant
         commitLogSeqNum = lastItem.location
       case f: Parsed.Failure =>
-        log.error(s"Failure ${f.toString()} when parsing ${lastItem.data}")
+        val message = s"Failure (${f.toString()}) when parsing ${lastItem.data}"
+        log.error(message)
+        throw new Exception(message)
     }
 
     // we drop the first item and the last item since the first one is just the "BEGIN _" and the last one is the "COMMIT _ (at _)"
@@ -239,7 +241,9 @@ private[cdc] object TestDecodingPlugin extends LogDecodPlugin {
         }
 
       case (s, f: Parsed.Failure) =>
-        log.error(s"Failure ${f.toString()} when parsing ${s.data}")
+        val message = s"Failure (${f.toString()}) when parsing ${s.data}"
+        log.error(message)
+        throw new Exception(message)
 
     }
 
