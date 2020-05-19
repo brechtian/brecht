@@ -174,11 +174,9 @@ source
 
 ## Monitoring
 
-This module uses the Prometheus Java client for instrumentation purposes. Most of our users tend to use 
-Prometheus in conjunction with Grafana. We recommend the
-[prometheus-akka-http](https://github.com/lonelyplanet/prometheus-akka-http) for exposing
-a metrics endpoint. 
-In build.sbt:
+This module uses the Prometheus Java client for instrumentation purposes. We recommend the
+[prometheus-akka-http](https://github.com/lonelyplanet/prometheus-akka-http) library for exposing a metrics endpoint.
+In your build.sbt:
 
 ```
 resolvers ++= Seq(Resolver.bintrayRepo("lonelyplanet", "maven"))
@@ -188,15 +186,15 @@ val prometheusAkkaHttp = "com.lonelyplanet" %% "prometheus-akka-http" % "0.5.0" 
 In your main:
 
 ```
-  DefaultExports.register(ChangeDataCapture.registry)
+DefaultExports.register(ChangeDataCapture.registry)
 
-  val metricsEndpoint = new MetricsEndpoint(ChangeDataCapture.registry)
-  val routes = metricsEndpoint.routes
-  val bindingFuture = Http().bindAndHandle(routes, interface = "0.0.0.0", port = 9091)
+val metricsEndpoint = new MetricsEndpoint(ChangeDataCapture.registry)
+val routes = metricsEndpoint.routes
+val bindingFuture = Http().bindAndHandle(routes, interface = "0.0.0.0", port = 9091)
 
 ```
 
-We provide a Grafana dashboard that you can download [here](src/main/grafana/Dashboard.json). 
+Most of our users tend to use Prometheus in conjunction with Grafana. We provide a Grafana dashboard that you can download [here](src/main/grafana/Dashboard.json). 
 
 ![Grafana Dashboard](Grafana.png)
 
