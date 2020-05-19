@@ -172,6 +172,7 @@ private[cdc] object Wal2JsonPlugin extends LogDecodPlugin {
   }
 
   private[cdc] def zipToMap(names: List[String], values: List[String], colsToIgnore: List[String]) = {
+    assert(names.size == values.size)
     val initial = names.zip(values).toMap
     val result = filterOutColumns(colsToIgnore, initial)
     result
