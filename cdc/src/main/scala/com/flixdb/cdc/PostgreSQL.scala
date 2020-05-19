@@ -155,8 +155,6 @@ private[cdc] case class PostgreSQL(ds: DataSource with Closeable) {
 
   def pullChanges(mode: Mode, slotName: String, maxItems: Int): List[SlotChange] = {
 
-
-
     var conn: Connection = null
     var pullChangesStatement: PreparedStatement = null
     var rs: ResultSet = null

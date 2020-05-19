@@ -68,7 +68,7 @@ final case class ChangeSet(
 
   override def toString: String = {
     s"ChangeSet(transactionId = $transactionId, commitLogSeqNum = $commitLogSeqNum, instant = $instant, " +
-      s"changes = List(${changes}))"
+      s"changes = ${changes})"
   }
 
 }
