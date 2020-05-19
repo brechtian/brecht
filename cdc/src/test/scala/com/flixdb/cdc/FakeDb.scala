@@ -111,6 +111,18 @@ trait FakeDb {
     truncateTable(conn, "\"WEATHER\"")
   }
 
+  def createCountriesTable(conn: Connection): Unit = {
+    val createTableSt = conn.prepareStatement(
+      """CREATE TABLE countries(name VARCHAR(255) NOT NULL, continent VARCHAR(255) NOT NULL);"""
+    )
+    createTableSt.execute()
+    createTableSt.close()
+  }
+
+  def truncateCountries(conn: Connection): Unit = {
+    truncateTable(conn, "countries")
+  }
+
   def dropTable(name: String, conn: Connection): Unit = {
     val st = conn.prepareCall(s"DROP TABLE $name")
     st.execute()
@@ -128,6 +140,8 @@ trait FakeDb {
   def dropTableImages(conn: Connection): Unit = dropTable("images", conn)
 
   def dropTableWeather(conn: Connection): Unit = dropTable(""""WEATHER"""", conn)
+
+  def dropTableCountries(conn: Connection): Unit = dropTable("countries", conn)
 
   def insertCustomer(
       conn: Connection,
@@ -279,6 +293,29 @@ trait FakeDb {
 
   def deleteWeathers(conn: Connection): Unit = {
     val deleteSt = conn.prepareStatement("DELETE FROM \"WEATHER\";")
+    deleteSt.execute()
+    deleteSt.close()
+  }
+
+  def insertCountry(conn: Connection, name: String, continent: String): Unit = {
+    val insertStatement = conn.prepareStatement("INSERT INTO countries(name, continent) VALUES(?,?)")
+    insertStatement.setString(1, name)
+    insertStatement.setString(2, continent)
+    insertStatement.execute()
+    insertStatement.close()
+  }
+
+  def updateCountry(conn: Connection, name: String, continent: String): Unit = {
+    val updateStatement = conn.prepareStatement("UPDATE countries SET continent = ? WHERE name = ?")
+    updateStatement.setString(1, continent)
+    updateStatement.setString(2, name)
+    updateStatement.execute()
+    updateStatement.close()
+  }
+
+  def deleteCountry(conn: Connection, name: String): Unit = {
+    val deleteSt = conn.prepareStatement("DELETE FROM countries WHERE name = ?")
+    deleteSt.setString(1, name)
     deleteSt.execute()
     deleteSt.close()
   }

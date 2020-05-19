@@ -66,7 +66,7 @@ abstract class PostgreSQLCapturerSpec
     createEmployeesTable(conn)
     createImagesTable(conn)
     createWeatherTable(conn)
-
+    createCountriesTable(conn)
   }
 
   override def afterAll: Unit = {
@@ -81,6 +81,7 @@ abstract class PostgreSQLCapturerSpec
     dropTableEmployees(conn)
     dropTableImages(conn)
     dropTableWeather(conn)
+    dropTableCountries(conn)
 
     log.info("Shutting down connection")
     conn.close()
@@ -588,13 +589,63 @@ abstract class PostgreSQLCapturerSpec
 
     }
 
+    "be able to capture changes from a table with no primary key" in {
+
+      truncateCountries(conn)
+      val slotName = "scalatest_8"
+      val dataSource = new HikariDataSource(cfg)
+
+      setUpLogicalDecodingSlot(conn, slotName, plugin.name)
+
+      insertCountry(conn, "Canada", "North America")
+      insertCountry(conn, "Iceland", "Europe")
+      updateCountry(conn, "Iceland", "North America")
+      deleteCountry(conn, "Canada")
+
+      val cdc = ChangeDataCapture(PostgreSQLInstance(dataSource))
+
+      val source = cdc.source(
+        PgCdcSourceSettings(
+          slotName = slotName,
+          dropSlotOnFinish = true,
+          closeDataSourceOnFinish = true,
+          plugin = this.plugin
+        )
+      )
+
+      source
+        .log("postgresqlcdc", cs => s"captured change: ${cs.toString}")
+        .withAttributes(Attributes.logLevels(onElement = Logging.InfoLevel))
+        .runWith(TestSink.probe[ChangeSet])
+        .request(4)
+        // it seems like we can capture inserts properly but we are not getting
+        // any data for updates and deletes (depending on the plugin)
+        .expectNextChainingPF {
+          case ChangeSet(_, _, _, List(RowInserted("public", "countries", _, _, _, _))) => // success
+        }
+        .expectNextChainingPF {
+          case ChangeSet(_, _, _, List(RowInserted("public", "countries", _, _, _, _))) => // success
+        }
+        .expectNextChainingPF {
+          case c: ChangeSet => // success
+        }
+        .expectNextChainingPF {
+          case c: ChangeSet => // success
+        }
+        .cancel()
+
+      eventually {
+        dataSource.isClosed shouldBe true
+      }
+    }
+
     "be able to work in 'at-least-once' mode" in {
 
       truncateEmployees(conn)
 
       val dataSource = new HikariDataSource(cfg)
 
-      val slotName = "scalatest_8"
+      val slotName = "scalatest_9"
 
       setUpLogicalDecodingSlot(conn, slotName, plugin.name)
 

@@ -233,6 +233,7 @@ private[cdc] object Wal2JsonPlugin extends LogDecodPlugin {
   ): List[ChangeSet] = {
 
     val result: List[ChangeSet] = slotChanges.map(slotChange => {
+      log.debug("Deserializing {}", slotChange.data)
       val wal2JsonR00t = slotChange.data.parseJson.convertTo[Wal2JsonR00t]
       wal2JsonR00tToChangeSet(slotChange.transactionId, slotChange.location, wal2JsonR00t, colsToIgnorePerTable)
     })

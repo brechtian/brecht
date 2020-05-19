@@ -124,6 +124,9 @@ private[cdc] object TestDecodingPlugin extends LogDecodPlugin {
   // when we have only the new version of the row
   def latest[_: P]: P[(List[Field], List[Field])] = data.map(v => (List.empty[Field], v))
 
+  // when we have no data (usually when the table doesn't have a primary key)
+  def noData[_: P]: P[(List[Field], List[Field])] = P("(no-tuple-data)").map(_ => (List.empty[Field], List.empty[Field]))
+
   // note: we need to wrap the function in an abstract class to get rid of a type erasure problem
   abstract class ChangeBuilder extends (((String, Long)) => Change) // (location: String, transactionId: Long) => Change
 
@@ -131,7 +134,7 @@ private[cdc] object TestDecodingPlugin extends LogDecodPlugin {
     val getData: List[Field] => Map[String, String] = fieldList => fieldList.map(f => f.columnName -> f.value).toMap
     val getSchema: List[Field] => Map[String, String] = fieldList =>
       fieldList.map(f => f.columnName -> f.columnType).toMap
-    P(s"table" ~ space ~ identifier ~ "." ~ identifier ~ ":" ~ space ~ changeType ~ ":" ~ space ~ P(latest | both))
+    P(s"table" ~ space ~ identifier ~ "." ~ identifier ~ ":" ~ space ~ changeType ~ ":" ~ space ~ P(noData | latest | both))
       .map { m =>
         {
           val schemaName = m._1
