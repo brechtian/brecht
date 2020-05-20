@@ -18,8 +18,8 @@ RUN    /etc/init.d/postgresql start &&\
     createdb -O docker docker
 RUN echo "host all  all    0.0.0.0/0  md5" >> /etc/postgresql/12/main/pg_hba.conf
 RUN echo "listen_addresses='*'" >> /etc/postgresql/12/main/postgresql.conf
-RUN echo "wal_level=logical" >> /etc/postgresql/postgresql.conf
-RUN echo "max_replication_slots=8" >> /etc/postgresql/postgresql.conf
+RUN echo "wal_level=logical" >> /etc/postgresql/12/main/postgresql.conf
+RUN echo "max_replication_slots=8" >> /etc/postgresql/12/main/postgresql.conf
 VOLUME  ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
 
 USER root
@@ -41,7 +41,7 @@ RUN wget https://dl.grafana.com/oss/release/grafana-7.0.0.linux-amd64.tar.gz && 
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-RUN yq w /prometheus-2.18.1.linux-amd64/prometheus.yml scrape_configs[0].static_configs[0].targets[1] localhost:9091
+RUN yq w -i /prometheus-2.18.1.linux-amd64/prometheus.yml scrape_configs[0].static_configs[0].targets[1] localhost:9091
 
 EXPOSE 5432
 EXPOSE 9090

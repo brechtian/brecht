@@ -96,7 +96,7 @@ class PostgresSQLDataAccess()(implicit system: ActorSystem[_]) {
 
   private[postgresql] def poolName = "postgresql-main-pool"
 
-  private[postgresql] val hikariDataSource: HikariDataSource = HikariCP(system).startHikariDataSource(poolName)
+  private[postgresql] val hikariDataSource: HikariDataSource = HikariCP(system).startHikariDataSource(poolName, metrics = true)
 
   private val logger = LoggerFactory.getLogger(classOf[PostgresSQLDataAccess])
 

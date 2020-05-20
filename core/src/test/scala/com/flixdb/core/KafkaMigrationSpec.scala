@@ -133,7 +133,7 @@ abstract class KafkaMigrationSpec
   }
 
   test("Starting the KafkaMigration extension") {
-    val dataSource = HikariCP(system.toTyped).startHikariDataSource("postgresql-cdc-pool")
+    val dataSource = HikariCP(system.toTyped).startHikariDataSource("postgresql-cdc-pool", metrics = false)
     val cdcConnector = ChangeDataCapture(PostgreSQLInstance(dataSource))
     val kafkaMigration = KafkaMigration(cdcConnector)(system.toTyped)
     eventually {
