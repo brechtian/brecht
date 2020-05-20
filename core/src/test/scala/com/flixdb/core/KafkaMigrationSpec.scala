@@ -12,6 +12,7 @@ import com.flixdb.cdc.scaladsl.ChangeDataCapture
 import com.flixdb.core.KafkaEventEnvelope._
 import com.flixdb.core.postgresql.PostgresSQLDataAccess
 import com.typesafe.config.{ConfigFactory, ConfigParseOptions, ConfigSyntax}
+import io.prometheus.client.CollectorRegistry
 import org.apache.kafka.clients.admin.{AdminClient, CreateTopicsResult, NewTopic}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecords, KafkaConsumer}
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -214,7 +215,7 @@ abstract class KafkaMigrationSpec
     postgreSQLContainer.stop()
     logger.info("Shutting down Kafka container")
     kafkaContainer.stop()
-
+    CollectorRegistry.defaultRegistry.clear()
   }
 
 }

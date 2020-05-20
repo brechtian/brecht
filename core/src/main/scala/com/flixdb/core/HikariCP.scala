@@ -8,8 +8,9 @@ import io.prometheus.client.CollectorRegistry
 
 object HikariCP extends ExtensionId[HikariCP] {
 
-  private val metricsTrackerFactory =
+  private val metricsTrackerFactory = {
     new PrometheusHistogramMetricsTrackerFactory(CollectorRegistry.defaultRegistry)
+  }
 
   override def createExtension(system: ActorSystem[_]): HikariCP =
     new HikariCP(system)

@@ -41,7 +41,7 @@ RUN wget https://dl.grafana.com/oss/release/grafana-7.0.0.linux-amd64.tar.gz && 
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-RUN yq w -i /prometheus-2.18.1.linux-amd64/prometheus.yml scrape_configs[0].static_configs[0].targets[1] localhost:9091
+RUN yq w -i /prometheus-2.18.1.linux-amd64/prometheus.yml scrape_configs[0].static_configs[0].targets[0] localhost:9091
 
 EXPOSE 5432
 EXPOSE 9090

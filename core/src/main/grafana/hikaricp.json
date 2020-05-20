@@ -15,8 +15,8 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 2,
-  "iteration": 1590013161545,
+  "id": 1,
+  "iteration": 1590014254217,
   "links": [],
   "panels": [
     {
@@ -60,12 +60,7 @@
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "alias": "Active Connections",
-          "color": "#FF9830"
-        }
-      ],
+      "seriesOverrides": [],
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
@@ -214,12 +209,7 @@
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "alias": "Active Connections",
-          "color": "#FF9830"
-        }
-      ],
+      "seriesOverrides": [],
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
@@ -409,7 +399,7 @@
     ]
   },
   "timezone": "",
-  "title": "HikariCP Copy",
+  "title": "HikariCP",
   "uid": "Vgne_rgMk",
-  "version": 1
+  "version": 2
 }
