@@ -97,6 +97,7 @@ lazy val core = {
       )
     )
     .dependsOn(pb, cdc)
+    .enablePlugins(JavaServerAppPackaging)
 }
 
 lazy val pb = (project in file("pb")).settings(
