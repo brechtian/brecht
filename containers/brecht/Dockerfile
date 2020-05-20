@@ -2,9 +2,10 @@ FROM ubuntu:18.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y curl wget supervisor
+RUN apt-get update && apt-get install -y unzip curl wget supervisor software-properties-common lsb-release
+RUN apt-get clean all
 RUN apt-get install -y python-pip && pip install supervisor-stdout
-RUN apt-get install -y lsb-release && apt-get clean all
+RUN add-apt-repository ppa:rmescandon/yq && apt update && apt install yq -y
 
 # Install Postgres
 
@@ -25,22 +26,32 @@ USER root
 
 RUN mkdir -p /var/log/supervisor
 
-# install jabba
+# Install jabba
 RUN wget https://github.com/shyiko/jabba/raw/master/install.sh
 RUN chmod +x install.sh && ./install.sh
 RUN . /root/.jabba/jabba.sh && jabba install openjdk@1.14.0 && jabba use openjdk@1.14.0
 ENV PATH="/root/.jabba/jdk/openjdk@1.14.0/bin:${PATH}"
 
+# Install kafka
 RUN wget https://downloads.apache.org/kafka/2.5.0/kafka_2.13-2.5.0.tgz && tar -xvzf kafka_2.13-2.5.0.tgz
+# Install prometheus
 RUN wget https://github.com/prometheus/prometheus/releases/download/v2.18.1/prometheus-2.18.1.linux-amd64.tar.gz && tar -xvzf prometheus-2.18.1.linux-amd64.tar.gz
+# Install grafana
 RUN wget https://dl.grafana.com/oss/release/grafana-7.0.0.linux-amd64.tar.gz && tar -zxvf grafana-7.0.0.linux-amd64.tar.gz
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
+RUN yq w /prometheus-2.18.1.linux-amd64/prometheus.yml scrape_configs[0].static_configs[0].targets[1] localhost:9091
+
 EXPOSE 5432
-EXPOSE 9092
+EXPOSE 9090
 EXPOSE 3000
 EXPOSE 8080
+EXPOSE 9091
+EXPOSE 9092
+
+COPY core-0.1.zip core-0.1.zip
+RUN unzip core-0.1.zip
 
 CMD ["/usr/bin/supervisord"]
 

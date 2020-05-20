@@ -214,6 +214,34 @@ index added, change of column type, etc.).
 SELECT * FROM pg_drop_replication_slot('name')
 ``` 
 
+2. Using with Akka Typed: the initialization process is a bit different, you'll have to create
+one of the actors (that this library is using) yourself.
+```
+import akka.actor.typed.Behavior
+import akka.actor.typed.SpawnProtocol
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.LoggerOps
+
+object HelloWorldMain {
+  def apply(): Behavior[SpawnProtocol.Command] =
+    Behaviors.setup { context =>
+      val changeDataCapture = {
+        import com.flixdb.cdc.{PostgreSQLActor, _}
+        val dataSource = HikariCP(system).startHikariDataSource("postgresql-cdc-pool")
+        val postgreSQLActor = ctx.spawn(
+          behavior = PostgreSQLActor.apply(PostgreSQL(dataSource)),
+          name = PostgreSQLActor.name,
+          props = PostgreSQLActor.props
+        )
+        ChangeDataCapture(PostgreSQLInstance(postgreSQLActor))
+      }
+      // Start (other) initial tasks
+      // context.spawn(...)
+      SpawnProtocol()
+    }
+}
+```
+
 ## Support
 
 FlixDb is sponsored by consulting services. The author(s) provide services centered around 
