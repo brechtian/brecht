@@ -7,6 +7,8 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.actor.typed.scaladsl.adapter._
 import akka.testkit.TestKit
+import com.flixdb.cdc.PostgreSQLInstance
+import com.flixdb.cdc.scaladsl.ChangeDataCapture
 import com.flixdb.core.KafkaEventEnvelope._
 import com.flixdb.core.postgresql.PostgresSQLDataAccess
 import com.typesafe.config.{ConfigFactory, ConfigParseOptions, ConfigSyntax}
@@ -131,7 +133,9 @@ abstract class KafkaMigrationSpec
   }
 
   test("Starting the KafkaMigration extension") {
-    val kafkaMigration = KafkaMigration(system.toTyped)
+    val dataSource = HikariCP(system.toTyped).startHikariDataSource("postgresql-cdc-pool")
+    val cdcConnector = ChangeDataCapture(PostgreSQLInstance(dataSource))
+    val kafkaMigration = KafkaMigration(cdcConnector)(system.toTyped)
     eventually {
       kafkaMigration.isStreamRunning.futureValue shouldBe true
     }

@@ -7,29 +7,54 @@ import akka.actor.ActorSystem
 import akka.actor.ActorSystem.Settings
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
-import akka.actor.typed.{ActorRef, Behavior, MailboxSelector}
+import akka.actor.typed.{ActorRef, Behavior, MailboxSelector, Props}
 import akka.dispatch.{PriorityGenerator, UnboundedStablePriorityMailbox}
-import com.flixdb.cdc.PostgreSQLActor.Flush
+import com.flixdb.cdc.PostgreSQLActor.{Flush, PostgreSQLActorMessage}
 import com.typesafe.config.Config
 import javax.sql.DataSource
 
 import scala.concurrent.duration.FiniteDuration
 
-case class PostgreSQLInstance(dataSource: DataSource with Closeable)(implicit actorSystem: ActorSystem) {
+class PostgreSQLInstance {
 
-  private val postgreSQL = PostgreSQL(dataSource)
+  private[cdc] var postgreSQLActor: ActorRef[PostgreSQLActorMessage] = null
 
-  private[cdc] val postgreSQLActor = actorSystem.spawn(
-    PostgreSQLActor.apply(postgreSQL),
-    name = s"cdc-${java.util.UUID.randomUUID().toString.take(8)}",
-    MailboxSelector
-      .fromConfig("cdc.mailbox")
-      .withDispatcherFromConfig("cdc.blocking-io-dispatcher")
-  )
+  def this(dataSource: DataSource with Closeable)(implicit actorSystem: ActorSystem) = {
+    this()
+    postgreSQLActor = actorSystem.spawn(
+      PostgreSQLActor.apply(new PostgreSQL(dataSource)),
+      name = PostgreSQLActor.name,
+      props = PostgreSQLActor.props
+    )
+  }
+
+  def this(postgreSQLActor: ActorRef[PostgreSQLActorMessage]) = {
+    this()
+    this.postgreSQLActor = postgreSQLActor
+  }
+
+}
+
+object PostgreSQLInstance {
+
+  def apply(dataSource: DataSource with Closeable)(implicit actorSystem: ActorSystem) = {
+    new PostgreSQLInstance(dataSource)(actorSystem)
+  }
+
+  def apply(postgreSQLActor: ActorRef[PostgreSQLActorMessage]) = {
+    new PostgreSQLInstance(postgreSQLActor)
+  }
 
 }
 
 object PostgreSQLActor {
+
+  def name: String = s"cdc-${java.util.UUID.randomUUID().toString.take(8)}"
+
+  def props: Props =
+    MailboxSelector
+      .fromConfig("cdc.mailbox")
+      .withDispatcherFromConfig("cdc.blocking-io-dispatcher")
 
   sealed trait PostgreSQLActorMessage
 

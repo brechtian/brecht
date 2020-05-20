@@ -23,11 +23,13 @@ before_cache:
 
 
 script:
-  - cd containers && ./build.sh && cd ..
+  - cd containers && ./build-postgresql.sh && cd ..
   - sbt scalastyle
   - sbt test:scalastyle
   - sbt "project cdc;+test"
   - sbt "project cdc;+publishLocal"
   - sbt "project core;test"
+  - sbt "project core;universal:packageBin"
   - cd cdc/samples/scala
   - sbt compile
+  - cd containers && ./build-brecht.sh && cd ..

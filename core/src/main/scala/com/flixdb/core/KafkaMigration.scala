@@ -3,7 +3,6 @@ package com.flixdb.core
 import akka.Done
 import akka.actor.typed._
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.scaladsl.adapter._
 import akka.cluster.typed.{ClusterSingleton, SingletonActor}
 import akka.kafka.ProducerMessage
 import akka.kafka.scaladsl.Producer
@@ -23,14 +22,14 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-object KafkaMigration extends ExtensionId[KafkaMigration] {
+object KafkaMigration {
 
-  override def createExtension(system: ActorSystem[_]) =
-    new KafkaMigration(system)
+  def apply(changeDataCapture: ChangeDataCapture)(system: ActorSystem[_]): KafkaMigration =
+    new KafkaMigration(changeDataCapture)(system)
 
 }
 
-class KafkaMigration(system: ActorSystem[_]) extends Extension {
+class KafkaMigration(changeDataCapture: ChangeDataCapture)(system: ActorSystem[_]) {
 
   private implicit val actorSystem = system
 
@@ -43,7 +42,7 @@ class KafkaMigration(system: ActorSystem[_]) extends Extension {
   val singletonProxy: ActorRef[KafkaMigrator.KafkaMigratorCommand] = singletonManager.init(
     singleton = SingletonActor(
       behavior = Behaviors
-        .supervise(KafkaMigrator.apply())
+        .supervise(KafkaMigrator.apply(changeDataCapture))
         .onFailure[Exception](SupervisorStrategy.restartWithBackoff(2.second, 10.seconds, 0.2)),
       name = "kafka-migrator"
     ).withStopMessage(End)
@@ -97,7 +96,7 @@ object KafkaMigrator {
     .name("kafka_migration_streams_total")
     .register()
 
-  class Stream(onFail: Throwable => Unit)(implicit system: ActorSystem[_]) {
+  class Stream(changeDataCapture: ChangeDataCapture)(onFail: Throwable => Unit)(implicit system: ActorSystem[_]) {
     runningStreams.inc()
 
     private var isRunning: Boolean = true
@@ -108,16 +107,7 @@ object KafkaMigrator {
 
     private val flixDbConfig = FlixDbConfig(system)
 
-    private val hikariCP = HikariCP(system)
-
     private val kafkaConfig = KafkaConfig(system)
-
-    private val dataSource = hikariCP.startHikariDataSource("postgresql-cdc-pool")
-
-    private val changeDataCapture = {
-      implicit val classicSystem = system.toClassic
-      ChangeDataCapture(PostgreSQLInstance(dataSource))
-    }
 
     def newProducerRecord(topic: String, key: String, value: String) = {
       log.debug("Getting ready to write message with key {} to topic {}", key, value, topic)
@@ -196,9 +186,9 @@ object KafkaMigrator {
     def getIsRunning: Boolean = isRunning
   }
 
-  def apply(): Behavior[KafkaMigratorCommand] = Behaviors.setup { context =>
+  def apply(changeDataCapture: ChangeDataCapture): Behavior[KafkaMigratorCommand] = Behaviors.setup { context =>
     implicit val system = context.system
-    val stream = new Stream(onFail = (t: Throwable) => {
+    val stream = new Stream(changeDataCapture)(onFail = (t: Throwable) => {
       context.self.tell(StreamFailed(t))
     })
 

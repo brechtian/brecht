@@ -8,6 +8,12 @@ FlixDb is an event store for DDD/CQRS/ES systems. Backed up by PostgreSQL, it se
 ## Current State
 Very alpha. 
 
+To run "everything" (Kafka, PostgreSQL, Grafana, Prometheus and Brecht itself) in one container:
+
+```
+docker run -p8080:8080 -p9092:9092 -p3000:3000 -p5432:5432 -p9090:9090 -p9091:9091 -d brecht:0.1
+```
+
 ## Commercial Support
 FlixDb is sponsored by consulting services. The author(s) provide services centered around 
 event driven systems. Send a direct email to flixdb@protonmail.com.

@@ -10,6 +10,10 @@ ThisBuild / organization := "com.flixdb"
 
 ThisBuild / bintrayOrganization := Some("flixdb")
 
+ThisBuild / resolvers ++= Seq(
+  Resolver.bintrayRepo("lonelyplanet", "maven")
+)
+
 lazy val scala213 = "2.13.1"
 lazy val scala212 = "2.12.10"
 lazy val supportedScalaVersions = List(scala213, scala212)
@@ -49,7 +53,7 @@ val lithium = "com.swissborg" %% "lithium" % "0.11.2"
 
 val prometheusClient = "io.prometheus" % "simpleclient" % "0.8.1"
 val prometheusHotspot = "io.prometheus" % "simpleclient_hotspot" % "0.8.1"
-val prometheusHttpServer = "io.prometheus" % "simpleclient_httpserver" % "0.8.1"
+val prometheusAkkaHttp = "com.lonelyplanet" %% "prometheus-akka-http" % "0.5.0"
 
 lazy val root = (project in file("."))
   .aggregate(core, pb, cdc)
@@ -87,7 +91,6 @@ lazy val core = {
         simulacrum,
         prometheusClient,
         prometheusHotspot,
-        prometheusHttpServer,
         scalaTest % Test,
         testContainersKafka % Test,
         akkaStreamTestKit % Test,
@@ -126,7 +129,7 @@ lazy val cdc = {
         postgreSQLDriver,
         prometheusClient,
         prometheusHotspot,
-        prometheusHttpServer,
+        prometheusAkkaHttp,
         akkaSlf4j % Test,
         logback % Test,
         hikariCP % Test,
