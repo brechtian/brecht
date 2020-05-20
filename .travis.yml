@@ -30,5 +30,5 @@ script:
   - sbt "project cdc;+publishLocal"
   - sbt "project core;test"
   - sbt "project core;universal:packageBin"
-  - cd cdc/samples/scala && sbt compile && cd ......
+  - cd cdc/samples/scala && sbt compile && cd ../../..
   - cd containers && ./build-brecht.sh && cd ..
