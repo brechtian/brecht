@@ -6,9 +6,9 @@ ThisBuild / parallelExecution in Test := false
 
 ThisBuild / Test / fork := true // specifies that all tests will be executed in a single external JVM
 
-ThisBuild / organization := "com.flixdb"
+ThisBuild / organization := "com.brecht"
 
-ThisBuild / bintrayOrganization := Some("flixdb")
+ThisBuild / bintrayOrganization := Some("brechtian")
 
 ThisBuild / resolvers ++= Seq(
   Resolver.bintrayRepo("lonelyplanet", "maven")

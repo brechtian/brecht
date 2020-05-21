@@ -1,5 +1,5 @@
 syntax = "proto3";
-package com.flixdb.core.protobuf.read;
+package com.brecht.core.protobuf.read;
 
 enum Result {
   SUCCESS = 0;

@@ -1,7 +1,7 @@
 # PostgreSQL CDC
 
-[![Build Status](https://travis-ci.com/flixdb/flixdb.svg?branch=master)](https://travis-ci.com/flixdb/flixdb)
-[![Gitter chat](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/flixdb/community "Gitter chat")
+[![Build Status](https://travis-ci.com/brechtian/brechtian.svg?branch=master)](https://travis-ci.com/brechtian/brecht)
+[![Gitter chat](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/brechtian/community "Gitter chat")
 
 
 This module provides an Akka Stream Source that can stream changes from a PostgreSQL database. Here, by
@@ -14,7 +14,7 @@ as soon as we are notified of a change to the data in the database). But more ge
 
 ## Note
 
-This module is part of FlixDb, but it can be used independently. The module is used internally by FlixDb to stream events from its
+This module is part of Brecht, but it can be used independently. The module is used internally by Brecht to stream events from its
 PostgreSQL backend to Kafka.
 
 ## Roadmap
@@ -42,17 +42,17 @@ transaction id. A [Change]() can be one of the following:
 ## Artifacts
 
 ```
-resolvers += Resolver.bintrayRepo("flixdb", "maven")
-libraryDependencies += "com.flixdb" %% "cdc" % "0.1"
+resolvers += Resolver.bintrayRepo("brechtian", "maven")
+libraryDependencies += "com.brecht" %% "cdc" % "0.1"
 ```
 
 ### Reported Issues
-Feel free to use [Github](https://github.com/flixdb/flixdb/issues) not only to report issues but also to provide general feedback. You are also very welcome
-to discuss anything related to this module on the [Gitter](https://gitter.im/flixdb/community "Gitter chat") channel. 
+Feel free to use [Github](https://github.com/brechtian/brecht/issues) not only to report issues but also to provide general feedback. You are also very welcome
+to discuss anything related to this module on the [Gitter](https://gitter.im/brechtian/community "Gitter chat") channel. 
 
 ### Samples
 
-Sample applications are available at this link: [examples](https://github.com/flixdb/flixdb/tree/master/cdc/samples/). 
+Sample applications are available at this link: [examples](https://github.com/brechtian/brecht/tree/master/cdc/samples/). 
 
 ## Usage
 
@@ -226,8 +226,8 @@ object HelloWorldMain {
   def apply(): Behavior[SpawnProtocol.Command] =
     Behaviors.setup { context =>
       val changeDataCapture = {
-        import com.flixdb.cdc.{PostgreSQLActor, _}
-        val dataSource = HikariCP(system).startHikariDataSource("postgresql-cdc-pool")
+        import com.brecht.cdc.{PostgreSQLActor, _}
+        val dataSource = ??? // HikariCP data source 
         val postgreSQLActor = ctx.spawn(
           behavior = PostgreSQLActor.apply(PostgreSQL(dataSource)),
           name = PostgreSQLActor.name,
@@ -244,7 +244,7 @@ object HelloWorldMain {
 
 ## Support
 
-FlixDb is sponsored by consulting services. The author(s) provide services centered around 
-event driven systems. Send a direct email to flixdb@protonmail.com.
+Brecht is sponsored by consulting services. The author(s) provide services centered around 
+event driven systems. Send a direct email to sebastian.harko@protonmail.com.
 
-
+![Brecht Logo](../brecht.png)
