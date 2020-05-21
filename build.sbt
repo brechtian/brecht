@@ -119,7 +119,7 @@ lazy val cdc = {
       licenses += ("MIT", url("http://opensource.org/licenses/MIT")),
       crossScalaVersions := supportedScalaVersions,
       name := "cdc",
-      version := "0.1-SNAPSHOT",
+      version := "0.1",
       libraryDependencies := Seq(
         slf4j,
         fastparse,

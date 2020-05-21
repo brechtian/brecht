@@ -16,7 +16,7 @@ resolvers ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "com.brecht" %% "cdc" % "0.1-SNAPSHOT",
+  "com.brecht" %% "cdc" % "0.1",
   "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
   "com.lonelyplanet" %% "prometheus-akka-http" % "0.5.0",
   "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
