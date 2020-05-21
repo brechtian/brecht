@@ -1,7 +1,7 @@
 Get Started
 ===========
 
-[![Build Status](https://travis-ci.com/brechtian/brechtian.svg?branch=master)](https://travis-ci.com/brechtian/brecht)
+[![Build Status](https://travis-ci.com/brechtian/brecht.svg?branch=master)](https://travis-ci.com/brechtian/brecht)
 [![Gitter chat](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/brechtian/community "Gitter chat")
 
 Steps:
