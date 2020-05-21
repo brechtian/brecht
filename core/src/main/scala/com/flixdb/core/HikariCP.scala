@@ -2,16 +2,25 @@ package com.flixdb.core
 
 import akka.actor.typed._
 import com.typesafe.config.Config
+import com.zaxxer.hikari.metrics.prometheus.PrometheusHistogramMetricsTrackerFactory
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
+import io.prometheus.client.CollectorRegistry
 
 object HikariCP extends ExtensionId[HikariCP] {
+
+  private val metricsTrackerFactory = {
+    new PrometheusHistogramMetricsTrackerFactory(CollectorRegistry.defaultRegistry)
+  }
+
   override def createExtension(system: ActorSystem[_]): HikariCP =
     new HikariCP(system)
 }
 
 class HikariCP(system: ActorSystem[_]) extends Extension {
 
-  private def buildHikariConfig(poolName: String): HikariConfig = {
+  import HikariCP._
+
+  private def buildHikariConfig(poolName: String, metrics: Boolean): HikariConfig = {
     val typeSafeConfig: Config = system.settings.config
     val pgConfig: Config = typeSafeConfig.getConfig(poolName)
     val user: String = pgConfig.getString("user")
@@ -25,6 +34,11 @@ class HikariCP(system: ActorSystem[_]) extends Extension {
     val poolNameJmx: String = poolName
 
     val config = new HikariConfig
+    if (metrics) {
+      // waiting for https://github.com/brettwooldridge/HikariCP/pull/1467
+      // to get merged
+      config.setMetricsTrackerFactory(metricsTrackerFactory)
+    }
     config.setDriverClassName(classOf[org.postgresql.Driver].getName)
     config.setJdbcUrl(jdbcUrl)
     config.setUsername(user)
@@ -44,7 +58,7 @@ class HikariCP(system: ActorSystem[_]) extends Extension {
     config
   }
 
-  def startHikariDataSource(name: String): HikariDataSource =
-    new HikariDataSource(buildHikariConfig(name))
+  def startHikariDataSource(name: String, metrics: Boolean): HikariDataSource =
+    new HikariDataSource(buildHikariConfig(name, metrics))
 
 }

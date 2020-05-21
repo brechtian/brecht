@@ -27,7 +27,7 @@ object Main extends App with JsonSupport {
 
       val changeDataCapture = {
         import com.flixdb.cdc.{PostgreSQLActor, _}
-        val dataSource = HikariCP(system).startHikariDataSource("postgresql-cdc-pool")
+        val dataSource = HikariCP(system).startHikariDataSource("postgresql-cdc-pool", metrics = false)
         val postgreSQLActor = ctx.spawn(
           behavior = PostgreSQLActor.apply(PostgreSQL(dataSource)),
           name = PostgreSQLActor.name,
@@ -64,10 +64,10 @@ object Main extends App with JsonSupport {
             s"HTTP server with Prometheus /metrics endpoint online at http://${bound.localAddress.getHostString}:${bound.localAddress.getPort}/"
           )
         case Failure(e) =>
-          ctx.log.error(s"HTTP server could not start!")
+          ctx.log.error(s"HTTP server with Prometheus /metrics endpoint could not start!")
       }
 
-      KafkaMigrator(changeDataCapture)
+      KafkaMigration(changeDataCapture)
 
       SpawnProtocol()
     }

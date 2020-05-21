@@ -11,6 +11,7 @@ import akka.testkit.TestKit
 import com.flixdb.core.EventEnvelope
 import com.flixdb.core.postgresql.PostgreSQLActor._
 import com.typesafe.config.{ConfigFactory, ConfigParseOptions, ConfigSyntax}
+import io.prometheus.client.CollectorRegistry
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.funsuite.AnyFunSuiteLike
@@ -213,6 +214,7 @@ abstract class AppendingEventsSpec
     dataAccess.closePools()
     TestKit.shutdownActorSystem(system, duration = 30.seconds, verifySystemShutdown = true)
     postgreSQLContainer.stop()
+    CollectorRegistry.defaultRegistry.clear()
   }
 
 }

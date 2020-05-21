@@ -24,19 +24,20 @@ import scala.util.{Failure, Success}
 
 object KafkaMigration {
 
-  def apply(changeDataCapture: ChangeDataCapture)(system: ActorSystem[_]): KafkaMigration =
+  def apply(changeDataCapture: ChangeDataCapture)(implicit system: ActorSystem[_]): KafkaMigration =
     new KafkaMigration(changeDataCapture)(system)
 
 }
 
 class KafkaMigration(changeDataCapture: ChangeDataCapture)(system: ActorSystem[_]) {
 
+  private val logger = LoggerFactory.getLogger(classOf[KafkaMigration])
+
   private implicit val actorSystem = system
 
   private implicit val ec = system.executionContext
 
   // start singleton actor
-
   private val singletonManager = ClusterSingleton(system)
 
   val singletonProxy: ActorRef[KafkaMigrator.KafkaMigratorCommand] = singletonManager.init(
@@ -167,6 +168,7 @@ object KafkaMigrator {
       })
       .via(cdcAckFlow)
 
+    log.info("Starting")
     val streamKillSwitch =
       cdcToKafkaSource
         .viaMat(KillSwitches.single)(Keep.right)
@@ -187,6 +189,7 @@ object KafkaMigrator {
   }
 
   def apply(changeDataCapture: ChangeDataCapture): Behavior[KafkaMigratorCommand] = Behaviors.setup { context =>
+    context.log.info("Starting")
     implicit val system = context.system
     val stream = new Stream(changeDataCapture)(onFail = (t: Throwable) => {
       context.self.tell(StreamFailed(t))
