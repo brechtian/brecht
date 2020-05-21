@@ -1,7 +1,7 @@
 ## HTTP 1.1 and JSON API
 
-FlixDb offers a HTTP 1.1 / JSON API. Though, we see it more as a way for 
-users to familiarize themselves with FlixDb and, 
+Brecht offers a HTTP 1.1 / JSON API. Though, we see it more as a way for 
+users to familiarize themselves with Brecht and, 
 in production, we'd like users to use
 the gRPC clients, the HTTP API is still very robust and is capable of powering a business.
 

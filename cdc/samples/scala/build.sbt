@@ -1,10 +1,10 @@
-organization := "com.flixdb.cdc"
+organization := "com.example.cdc"
 
 name := "samples"
 
 scalaVersion := "2.13.1"
 
-resolvers += Resolver.bintrayRepo("flixdb",
+resolvers += Resolver.bintrayRepo("brechtian",
   "maven")
 
 val akkaVersion = "2.6.4"
@@ -16,7 +16,7 @@ resolvers ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "com.flixdb" %% "cdc" % "0.1-SNAPSHOT",
+  "com.brecht" %% "cdc" % "0.1-SNAPSHOT",
   "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
   "com.lonelyplanet" %% "prometheus-akka-http" % "0.5.0",
   "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,

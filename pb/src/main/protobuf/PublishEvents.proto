@@ -1,5 +1,5 @@
 syntax = "proto3";
-package com.flixdb.core.protobuf.write;
+package com.brecht.core.protobuf.write;
 
 enum ErrorReason {
   UNKNOWN = 0;

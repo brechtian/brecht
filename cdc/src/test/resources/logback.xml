@@ -28,7 +28,7 @@
     </appender>
 
     <logger name="org.apache.kafka" level="ERROR"/>
-    <logger name="com.flixdb.cdc.Wal2JsonPlugin" level="DEBUG"/>
+    <logger name="com.brecht.cdc.Wal2JsonPlugin" level="DEBUG"/>
 
     <root level="INFO">
         <appender-ref ref="ASYNC-FILE"/>
