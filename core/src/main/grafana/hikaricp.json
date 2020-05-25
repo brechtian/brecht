@@ -15,7 +15,7 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "iteration": 1590022005522,
+  "iteration": 1590437606143,
   "links": [],
   "panels": [
     {
@@ -51,7 +51,7 @@
       },
       "lines": true,
       "linewidth": 3,
-      "nullPointMode": "null",
+      "nullPointMode": "connected",
       "options": {
         "dataLinks": []
       },
@@ -202,7 +202,7 @@
       },
       "lines": true,
       "linewidth": 3,
-      "nullPointMode": "null",
+      "nullPointMode": "connected",
       "options": {
         "dataLinks": []
       },
