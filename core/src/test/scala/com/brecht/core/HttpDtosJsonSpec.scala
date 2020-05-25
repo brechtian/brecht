@@ -53,7 +53,7 @@ class HttpDtosJsonSpec extends JsonSupport with AnyFunSuiteLike with BeforeAndAf
 
     e.eventId shouldBe "1af2948a-d4dd-48b0-8ca0-cb0fe7562b3d"
     e.eventType shouldBe "com.megacorp.AccountCreated"
-    e.sequenceNum shouldBe 1
+    e.sequenceNum shouldBe Some(1)
     e.data shouldBe """{"owner":"John Smith"}"""
     e.tags shouldBe Option(List("megacorp"))
   }

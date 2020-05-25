@@ -60,6 +60,9 @@ class HttpJsonApiSpec extends AnyWordSpec with Matchers with ScalatestRouteTest 
         case _ => Future.failed(new Exception)
       }
     }
+
+    override def snapshot(namespace: String, eventEnvelope: EventEnvelope): Future[Done] =
+      Future.successful(Done)
   }
 
   val httpJsonRoutes = new HttpJsonRoutes(fakeEventStoreController)
