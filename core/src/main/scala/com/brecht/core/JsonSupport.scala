@@ -1,7 +1,7 @@
 package com.brecht.core
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import com.brecht.core.Dtos.{Event, EventList, PostEvent, PostEventList}
+import com.brecht.core.Dtos._
 import spray.json.{DefaultJsonProtocol, JsArray, JsNumber, JsObject, JsString, _}
 
 import scala.language.implicitConversions
@@ -23,9 +23,16 @@ object Dtos {
   final case class PostEvent(
       eventId: String,
       eventType: String,
-      sequenceNum: Int,
+      sequenceNum: Option[Int],
       data: String,
       tags: Option[List[String]]
+  )
+
+  final case class Snapshot(
+      eventId: String,
+      eventType: String,
+      sequenceNum: Int,
+      data: String
   )
 
   final case class EventList(events: List[Event])
@@ -59,20 +66,26 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit object PostEventJsonReader extends RootJsonReader[PostEvent] {
     override def read(value: JsValue): PostEvent = {
       val jsObject = value.asJsObject
-      jsObject.getFields("eventId", "eventType", "sequenceNum", "data") match {
+      jsObject.getFields("eventId", "eventType", "data") match {
         case Seq(
             JsString(eventUniqueId),
             JsString(eventType),
-            JsNumber(sequenceNum),
             data: JsValue
             ) =>
           // optional fields
-          val tags = jsObject.fields.get("tags") match {
+          val maybeTags = jsObject.fields.get("tags") match {
             case Some(JsArray(items)) => Some(items.collect { case JsString(v) => v }.toList)
-            case _                    => None
+            case None                 => None
+            case _                    => deserializationError("Invalid JSON")
           }
 
-          PostEvent(eventUniqueId, eventType, sequenceNum.toInt, data.compactPrint, tags)
+          val maybeSequenceNum: Option[Int] = jsObject.fields.get("sequenceNum") match {
+            case Some(JsNumber(seqNum)) => Some(seqNum.toIntExact)
+            case None                   => None
+            case _                      => deserializationError("Invalid JSON")
+          }
+
+          PostEvent(eventUniqueId, eventType, maybeSequenceNum, data.compactPrint, maybeTags)
 
         case _ =>
           deserializationError("Invalid JSON: you may be missing some fields, see documentation")
@@ -92,11 +105,30 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
     }
   }
 
+  implicit object SnapshotJsonReader extends RootJsonReader[Snapshot] {
+    override def read(value: JsValue): Snapshot = {
+      val jsObject = value.asJsObject
+      jsObject.getFields("eventId", "eventType", "data", "sequenceNum") match {
+        case Seq(
+            JsString(eventUniqueId),
+            JsString(eventType),
+            data: JsValue,
+            JsNumber(sequenceNum)
+            ) =>
+          Snapshot(eventUniqueId, eventType, sequenceNum.toIntExact, data.compactPrint)
+
+        case _ =>
+          deserializationError("Invalid JSON: you may be missing some fields, see documentation")
+      }
+    }
+
+  }
+
 }
 
 object DtoConversions {
 
-  implicit def eventEnvelopeToEvent(eventEnvelope: EventEnvelope): Event = {
+  implicit def eventEnvelopeToEventDto(eventEnvelope: EventEnvelope): Event = {
     Event(
       eventId = eventEnvelope.eventId,
       subStreamId = eventEnvelope.subStreamId,
@@ -116,7 +148,7 @@ object DtoConversions {
         eventId = p.eventId,
         subStreamId = subStreamId,
         eventType = p.eventType,
-        sequenceNum = p.sequenceNum,
+        sequenceNum = p.sequenceNum.getOrElse(-1),
         data = p.data,
         stream = stream,
         tags = p.tags.getOrElse(Nil),
@@ -126,6 +158,19 @@ object DtoConversions {
     )
   }
 
+  def snapshotDtoToEventEnvelope(stream: String, subStreamId: String, snapshot: Snapshot) = {
+    EventEnvelope(
+      eventId = snapshot.eventId,
+      subStreamId = subStreamId,
+      eventType = snapshot.eventType,
+      sequenceNum = snapshot.sequenceNum,
+      data = snapshot.data,
+      stream = stream,
+      tags = Nil,
+      timestamp = 0,
+      snapshot = true
+    )
+  }
 }
 
 object JsonSupport extends JsonSupport

@@ -27,6 +27,15 @@ class HttpJsonRoutes(controller: EventStoreController) {
             onSuccess(controller.createNamespace(namespace)) { _ => complete(StatusCodes.OK) }
           }
         },
+        path(Segment / "snapshot" / Segment / Segment) { (namespace: String, stream: String, subStreamId: String) =>
+          post {
+            entity(as[Dtos.Snapshot]) { snapshotDto =>
+              onSuccess(controller.snapshot(namespace, snapshotDtoToEventEnvelope(stream, subStreamId, snapshotDto))) {
+                _ => complete(StatusCodes.OK)
+              }
+            }
+          }
+        },
         path(Segment / "events" / Segment / Segment) { (namespace: String, stream: String, subStreamId: String) =>
           concat(
             get {

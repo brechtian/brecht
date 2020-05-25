@@ -21,6 +21,8 @@ trait EventStoreController {
       eventEnvelopes: List[EventEnvelope]
   ): Future[Done]
 
+  def snapshot(namespace: String, eventEnvelope: EventEnvelope): Future[Done]
+
 }
 
 class EventStoreControllerImpl(postgreSQL: ActorRef[PostgreSQLActor.Request])(implicit system: ActorSystem[_])
@@ -52,6 +54,15 @@ class EventStoreControllerImpl(postgreSQL: ActorRef[PostgreSQLActor.Request])(im
   ): Future[Done] = {
     val askResult =
       postgreSQL.ask[PublishEventsResult](ref => PublishEventsRequest(namespace, eventEnvelopes, ref))
+    askResult.map(_.result).flatMap {
+      case Success(value: Done)          => Future.successful(result = value)
+      case Failure(exception: Throwable) => Future.failed(exception)
+    }
+  }
+
+  override def snapshot(namespace: String, eventEnvelope: EventEnvelope): Future[Done] = {
+    val askResult =
+      postgreSQL.ask[SnapshotResult](ref => SnapshotRequest(namespace, eventEnvelope, ref))
     askResult.map(_.result).flatMap {
       case Success(value: Done)          => Future.successful(result = value)
       case Failure(exception: Throwable) => Future.failed(exception)
