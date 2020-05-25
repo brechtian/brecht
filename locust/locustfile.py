@@ -1,38 +1,39 @@
 import json
 import logging
 import random
+import sys
 import uuid
 
 from locust import HttpUser, task, between
 
 logger = logging.getLogger('brecht')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 class WebsiteUser(HttpUser):
     wait_time = between(0, 3)
     namespace = "development"
-    my_sub_stream_id = f"account-{str(random.randint(0, 10000))}"
-    events = 0
-    max_events_before_snapshot = 20
+    my_sub_stream_id = None
+    current_event_seq_num = None
+    snapshot_after = None
 
     @task(2)
     def post_account_event(self):
-        if self.events < self.max_events_before_snapshot:
+        self.current_event_seq_num = self.current_event_seq_num + 1
+        if self.current_event_seq_num % self.snapshot_after != 0:
             self.post_event()
-            self.events = self.events + 1
-            logger.info(f"{self.events} events for entity with id {self.my_sub_stream_id}")
+            logger.info(f"{self.current_event_seq_num} events for entity with id {self.my_sub_stream_id}")
         else:
             self.post_snapshot()
-            self.events = 0
 
     def post_snapshot(self):
         snapshot_event = {
             "data": {
-                "balance": str(888 * self.max_events_before_snapshot)
+                "balance": str(888 * self.snapshot_after)
             },
             "eventType": "com.megacorp.AccountBalanceSnapshot",
-            "eventId": str(uuid.uuid1())
+            "eventId": str(uuid.uuid1()),
+            "sequenceNum": self.current_event_seq_num
         }
         snapshot_as_json: str = json.dumps(snapshot_event)
         logger.info(f"Posting snapshot {snapshot_as_json}")
@@ -48,6 +49,7 @@ class WebsiteUser(HttpUser):
                 "from": "Michael Jackson",
                 "amount": 888
             },
+            "sequenceNum": self.current_event_seq_num,
             "eventType": "com.megacorp.MoneyDeposited",
             "eventId": str(uuid.uuid1()),
             "tags": ["megacorp"]
@@ -76,6 +78,9 @@ class WebsiteUser(HttpUser):
                 response.success()
 
     def on_start(self):
+        self.my_sub_stream_id = f"account-{str(random.randint(0, sys.maxsize))}"
+        self.current_event_seq_num = 0
+        self.snapshot_after = 20
         """ on_start is called when a User starts before any task is scheduled """
         self.create_namespaces()
 

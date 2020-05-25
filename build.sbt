@@ -48,7 +48,6 @@ val akkaStreamTestKit = "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersi
 val scalaTest = "org.scalatest" %% "scalatest" % "3.1.1"
 val testcontainers = "org.testcontainers" % "testcontainers" % "1.14.1"
 val testContainersKafka = "org.testcontainers" % "kafka" % "1.12.4"
-val simulacrum = "org.typelevel" %% "simulacrum" % "1.0.0"
 val lithium = "com.swissborg" %% "lithium" % "0.11.2"
 
 val prometheusClient = "io.prometheus" % "simpleclient" % "0.8.1"
@@ -70,6 +69,7 @@ lazy val core = {
       publish / skip := true,
       name := "core",
       version := "0.1",
+      maintainer := "sebastian.harko@protonmail.com",
       libraryDependencies := Seq(
         logback,
         sprayJson,
@@ -88,7 +88,6 @@ lazy val core = {
         akkaClusterSharding,
         postgreSQLDriver,
         hikariCP,
-        simulacrum,
         prometheusClient,
         prometheusHotspot,
         scalaTest % Test,
